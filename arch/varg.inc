@@ -1,0 +1,5 @@
+.equ VA_LIST_STACK, 0
+.equ VA_LIST_GR_TOP, 8
+.equ VA_LIST_VR_TOP, 16
+.equ VA_LIST_GR_OFF, 24
+.equ VA_LIST_VR_OFF, 28
