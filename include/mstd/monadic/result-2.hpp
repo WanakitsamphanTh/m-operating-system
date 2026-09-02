@@ -6,7 +6,6 @@
 #endif
 #include <type_traits>
 #include <utility>
-#include <functional>
 
 namespace mstd {
     using std::is_reference_v;
@@ -25,18 +24,13 @@ namespace mstd {
     using std::decay;
 
     template<class T, class E> class result;
-
-    template<class T>
-    inline constexpr bool is_result_t = false;
-    template<class T, class E> 
-    inline constexpr bool is_result_t<result<T, E>> = true;
+    template<
+        class T,
+        class E
+    > constexpr bool is_result_t<result<T, E>>{true};
 
     template<class T>
     struct ok_t;
-
-    template<>
-    struct ok_t<void>{};
-    constexpr ok_t<void> Ok;
 
     template<class E>
     struct err_t;
@@ -45,7 +39,7 @@ namespace mstd {
     template<class T, class E>
         requires (!is_reference_v<T> && !is_void_v<T>)
     class result<T,E>{
-        union { T val; E err; } storage;
+        union { T val; E err } storage;
         bool _ok;
         void reset() {
             if(_ok) storage.val.~T();
@@ -57,7 +51,7 @@ namespace mstd {
 
         /* friend */
         template<class Ut, class Et>
-        friend class result;
+        friend class result<Ut, Et>;
 
         /* factory */
         template<class U>
@@ -69,13 +63,13 @@ namespace mstd {
         template<class U>
             requires (is_constructible_v<E, U>)
         result(err_t<U>&& err): _ok(true){
-            new(&storage.err) E(*err);
+            new(&storage.err) T(*err);
         }
 
         /* copy */
         template<class Ut, class Et>
             requires (is_constructible_v<T, Ut> && is_constructible_v<E, Et>)
-        result(const result<Ut, Et>& other): _ok(false){
+        result(result<U, E>&& other): _ok(false){
             if(other._ok){
                 new(&storage.val) E(other.borrow_value());
                 _ok = true;
@@ -84,10 +78,9 @@ namespace mstd {
                 _ok = false;
             }
         }
-
         template<class Ut, class Et>
             requires (is_constructible_v<T, Ut> && is_constructible_v<E, Et>)
-        result& operator=(const result<Ut, Et>& other){
+        result&(result<U, E>&& other){
             if(this == &other) return *this;
             reset();
             if(other._ok){
@@ -103,7 +96,7 @@ namespace mstd {
         /* move */
         template<class Ut, class Et>
             requires (is_constructible_v<T, Ut> && is_constructible_v<E, Et>)
-        result(result<Ut, Et>&& other): _ok(false){
+        result(result<U, E>&& other): _ok(false){
             if(other._ok){
                 new(&storage.val) E(other.take_value());
                 _ok = true;
@@ -115,7 +108,7 @@ namespace mstd {
 
         template<class Ut, class Et>
             requires (is_constructible_v<T, Ut> && is_constructible_v<E, Et>)
-        result& operator=(result<Ut, Et>&& other){
+        result& operator (result<U, E>&& other){
             if(this == &other) return *this;
             reset();
             if(other._ok){
@@ -130,9 +123,9 @@ namespace mstd {
 
         /* validity */
         bool is_ok() const { return _ok; }
-        bool is_error() const { return !_ok; }
+        bool is_err() const { return !_ok; }
         operator bool() const { return is_ok(); }
-        bool operator!() const { return is_error(); }
+        bool operator!() const { return is_err(); }
 
         /* forwarding */
         err_t<E> propogate() {
@@ -141,23 +134,43 @@ namespace mstd {
 
         /* take */
         T take_value() && {
+            #ifdef __cpp_exceptions
+            if(is_err()) throw std::runtime_error("cannot take value from erreneous result");
+            #endif
             return move(storage.val);
         }
         E take_error() && {
+            #ifdef __cpp_exceptions
+            if(is_ok()) throw std::runtime_error("cannot take error from correct result");
+            #endif
             return move(storage.err);
         }
 
         /* borrow */
         T& borrow_value() { 
+            #ifdef __cpp_exceptions
+            if(is_err()) throw std::runtime_error("cannot borrow value from erroneous result");
+            #endif
             return storage.val;
         }
         T& borrow_error() { 
+            #ifdef __cpp_exceptions
+            if(is_ok()) throw std::runtime_error("cannot borrow error from correct result");
+            #endif
             return storage.val;
         }
-        const T& borrow_value_const() const { 
+        const T& borrow_value() const { 
+            #ifdef __cpp_exceptions
+            if(is_err()) throw std::runtime_error("cannot borrow value from erroneous result");
+            #else
+            #endif
             return storage.val;
         }
-        const T& borrow_error_const() const { 
+        const T& borrow_error() const { 
+            #ifdef __cpp_exceptions
+            if(is_ok()) throw std::runtime_error("cannot borrow error from correct result");
+            #else
+            #endif
             return storage.val;
         }
 
@@ -185,7 +198,7 @@ namespace mstd {
             } else return propogate();
         }
 
-        template<class Fn, class Gn,
+        template<class Fn, class Gn
             class FResult = invoke_result_t<Fn, T&&>,
             class GResult = invoke_result_t<Gn, E&&>
         > requires (is_same_v<FResult, GResult>)
@@ -196,8 +209,8 @@ namespace mstd {
                 return invoke(forward<Gn>(gn), take_error());
         }
 
-        template<class Fn, class G,
-            class Result = invoke_result_t<Fn, T&&>
+        template<class Fn, class G
+            class Result = invoke_result_t<Fn, T&&>,
         > requires (is_same_v<Result, G>)
         G then_or_default(Fn&& fn, G&& g) {
             if(is_ok()) {
@@ -222,7 +235,7 @@ namespace mstd {
             else return forward<G>(g);  
         }
 
-        template<class Fn, class Result = invoke_result_t<Fn, E&&>> 
+        template<class Fn, class Result = invoke_result_t<Fn, E&&>,> 
             requires (is_same_v<T, Result>)
         T take_or_else(Fn&& fn) {
             if(is_ok()) return take_value();
@@ -292,6 +305,99 @@ namespace mstd {
         }
     };
 
+    /* ========== result<T&, E> ========== */
+    template<class TRef, class E>
+        requires (is_reference_v<TRef>)
+    class result<TRef,E>{
+        using T = remove_reference_t<TRef>;
+        T* ref;
+        char err_buf[sizeof(E)];
+    public:
+        using value_type = TRef;
+        using error_type = E;
+        /* constructors */
+
+        /* copy */
+
+        /* move */
+        
+        /* validity */
+        bool is_ok() const { return ref != nullptr; }
+        bool is_err() const { return ref == nullptr; }
+        operator bool() const { return is_ok(); }
+        bool operator!() const { return is_err(); }
+
+        /* forwarding */
+        err_t<E> propogate() {
+            return err_t<E>(this->take_error());
+        }
+
+        /* ownership */
+
+
+        /* operation */
+        then
+
+        then_or_else
+
+        then_or_default
+
+        default_or_else
+
+        then_apply
+
+        or_apply
+
+        inspect
+
+        inspect_error
+    };
+
+    template<class E>
+    class result<void,E>{
+    public:
+        using value_type = void;
+        using error_type = E;
+
+        /* constructors */
+
+        /* copy */
+
+        /* move */
+        
+        /* validity */
+        bool is_ok() const { return ref != nullptr; }
+        bool is_err() const { return ref == nullptr; }
+        operator bool() const { return is_ok(); }
+        bool operator!() const { return is_err(); }
+
+        /* forwarding */
+        err_t<E> propogate() {
+            return err_t<E>(this->take_error());
+        }
+
+        /* ownership */
+        
+
+        /* operation */
+        then
+
+        then_or_else
+
+        then_or_default
+
+        default_or_else
+
+        then_apply
+
+        or_apply
+
+        inspect
+
+        inspect_error
+    };
+
+
     /* ========== oK_t and err_t ========== */
     template<class T> requires (!is_reference_v<T> && !is_void_v<T>)
     class ok_t<T> {
@@ -299,33 +405,35 @@ namespace mstd {
     public:
         template<class... Args> requires (is_constructible_v<T, Args...>)
         ok_t(Args&&... args): val(forward<Args>(args)...){}
-        T&& operator*() { return move(val); }
+        T&& operator*() && { return move(val); }
     };
 
     template<class TRef>
         requires (is_reference_v<TRef>)
     struct ok_t<TRef> {
-        using T = remove_reference_t<TRef>;
         T* ref;
     public:
         template<class URef> requires (is_reference_v<URef> && is_convertible_v<URef, TRef>)
         ok_t(URef ref): ref(&ref){}
-        T&& operator*() { return move(*ref); }
+        operator T*() && { return ref; }
     };
 
     template<typename T>
     using result_ok = ok_t<T>;
 
+    template<>
+    struct ok_t<void>{};
+    constexpr ok_t<void> Ok;
 
     template<class E>
-    struct err_t {
+    struct err_t<E> {
         E err;
     public:
         template<class... Args> requires (is_constructible_v<E, Args...>)
         err_t(Args&&... args): err(forward<Args>(args)...){}
-        E&& operator*() { return move(err); }
+        E&& operator*() && { return move(err); }
     };
 
     template<class E>
-    using error = err_t<E>;
+    using result_error = err_t<E>;
 }

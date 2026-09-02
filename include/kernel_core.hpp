@@ -1,4 +1,4 @@
-#include "kernel/printk.hpp"
+#include "kernel/io.hpp"
 #include "kernel/uart.hpp"
 
 extern "C" [[noreturn]] void kernel_halt();

@@ -1,5 +1,5 @@
 #include "kernel/el_handler.hpp"
-#include "kernel.hpp"
+#include "kernel_core.hpp"
 
 
 extern "C" Ctx* sync_sp0(Ctx* ctx){

@@ -10,12 +10,8 @@ using mstd::some;
 using mstd::scope_guard;
 
 extern "C" int kmain(){
-    scope_guard guard([]{
-        printk("Exit kernel...\n");
-    });
-    printk("Hello world\n");
-    for(volatile int i = 0; i < INT_MAX; i++){
-        printk("[kmain] %d\n", i);
-    }
+    MK::KernelConsole console;
+    console.write("Hello world\n");
+    console.write("This is {}", 100);
     return 0;
 }

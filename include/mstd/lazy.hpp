@@ -53,18 +53,22 @@ namespace mstd {
             return storage.value;
         }
         
-        operator T() const {
+        template<class U> requires (is_constructible_v<U, T>)
+        operator U() const {
             return get();
         }
 
-        operator T&() {
+        template<class U> requires (is_constructible_v<U&, T&>)
+        operator U&() {
             return get();
         }
 
+        template<class U> requires (is_constructible_v<U&, T&>)
         operator const T&() const {
             return get();
         }
 
+        template<class U> requires (is_constructible_v<U&, T&>)
         operator T&&() {
             return std::move(get());
         }
