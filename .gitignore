@@ -1,0 +1,7 @@
+debian-arm64.qcow2
+build/
+*.ps1
+*.bin
+*.elf
+*.o
+*.log
