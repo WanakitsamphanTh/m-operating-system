@@ -4,6 +4,7 @@
 #include <concepts>
 #include <type_traits>
 #include "mstd/monadic/maybe.hpp"
+#include "mstd/comptime/string.hpp"
 
 namespace mstd {
     using std::same_as;
@@ -27,19 +28,17 @@ namespace mstd {
     };
 
     struct fmt_spec {
-        enum class alignment {unaligned, left, right} align: 2;
-        bool show_sign: 1;
-        bool show_base: 1;
-        bool zero_pad: 1;
-        enum class number_base {bin, oct, dec, hex} base: 2;
+        enum class alignment {unaligned, left, right} align;
+        bool show_sign;
+        bool show_base;
+        bool zero_pad;
+        enum class number_base {bin, oct, dec, hex} base;
         size_t precision;
         size_t width;
     };
 
     template<fmt_buffer FmtBuf, class T>
-    fmt_result write_format(FmtBuf& buf, const T& val, fmt_spec& fmt);
-
-    const char* parse_fmt(const char* spec, const char* bound, fmt_spec& fmt);
+    fmt_result write_format(FmtBuf& buf, const T& val, fmt_spec fmt);
 
     /* 
         default formatter
@@ -51,7 +50,7 @@ namespace mstd {
     struct default_fmt;
 
     template<class T>
-        requires (!std::is_reference_v<T>)
+        requires (!std::is_reference_v<T> && !std::is_pointer_v<T>)
     struct default_fmt<T> { 
         static constexpr fmt_spec spec = {
             .align = fmt_spec::alignment::left,
@@ -66,8 +65,69 @@ namespace mstd {
 
     template<class TRef>
         requires (std::is_reference_v<TRef>)
-    class default_fmt<TRef> {
-        using TConcrete = std::remove_cv_t<TRef>;
+    struct default_fmt<TRef> {
+        using TConcrete = std::remove_cvref_t<TRef>;
         static constexpr fmt_spec spec = default_fmt<TConcrete>::spec;
     };
+
+    template<size_t N>
+    constexpr fmt_spec parse_fmt(comptime_string<N> spec, fmt_spec& fmt){
+        /*
+        sign: '+' | none
+        zeropad: '0' | none
+        width: [1..9] digit+ | none
+        precision : '.' digit+ | none
+        base: b | x | h | none
+        alignment: 'L' | 'R' | non
+        */
+        size_t i = 0;
+        if(spec[i] == '+') {
+            fmt.show_sign = true;
+            i++;
+        }
+        if(spec[i] == '0') {
+            fmt.show_base = true;
+            i++;
+        }
+        size_t w = 0;
+        while(spec[i] >= '0' && spec[i] <= '9') {
+            w = w * 10 + (spec[i] - '0');
+            i++;
+        }
+        if(w != 0) fmt.width = w;
+        if(spec[i] == '.'){
+            i++;
+            size_t p = 0;
+            while(spec[i] >= '0' && spec[i] <= '9') {
+                p = p * 10 + (spec[i] - '0');
+                i++;
+            }
+            fmt.precision = p;
+        }
+        switch(spec[i]){
+            case 'b':
+                fmt.base = fmt_spec::number_base::bin; 
+                i++;
+                break;
+            case 'o': 
+                fmt.base = fmt_spec::number_base::oct; 
+                i++;
+                break;
+            case 'h': 
+                fmt.base = fmt_spec::number_base::hex; 
+                i++;
+                break;
+        }
+
+        if(spec[i] == 'L'){
+            fmt.align = fmt_spec::alignment::left;
+            i++;
+        } else if(spec[i] == 'R'){
+            fmt.align = fmt_spec::alignment::right;
+            i++;
+        }
+
+        return fmt;
+    }
+
 }

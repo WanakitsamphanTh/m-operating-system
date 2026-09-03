@@ -1,4 +1,5 @@
 #pragma once
+#include <utility>
 
 namespace mstd {
     template<size_t N>
@@ -18,8 +19,25 @@ namespace mstd {
             for(size_t i = 0; i < cap; i++)
                 str[i] = src[i];
         }
+
+        template<size_t i, char c>
+        consteval auto split() const {
+            if constexpr(i == N) {
+                return std::make_pair(substr<0,i>(), comptime_string<0>());
+            } else if constexpr (str[i] == c){
+                return std::make_pair(substr<0,i>(), substr<i+1,N>());
+            } else {
+                return split<i+1, c>();
+            }
+        }
+
+        template<char c>
+        consteval auto split() const {
+            return split<0,c>();
+        }
+
         /* operator */
-        const char& operator[](size_t i) const {
+        consteval char& operator[](size_t i) const {
             return str[i];
         }
 
@@ -45,18 +63,25 @@ namespace mstd {
 
         /* slice */
         template<size_t beg, size_t end>
-        consteval auto slice() const {
+        consteval auto substr() const {
             static_assert(beg < end, "invalid slice size");
+            if(beg >= N) return comptime_string<0>();
             const size_t bound = end > N ? N : end;
-            char sliced[bound - beg];
+            char sliced[bound - beg + 1];
             for(size_t i = beg; i < bound; i++)
-                sliced[i] = str[i];
-            return comptime_string<bound - beg>(sliced);
+                sliced[i - beg] = str[i];
+            sliced[bound - beg] = '\0';
+            return comptime_string<bound - beg + 1>(sliced);
         }
 
         operator const char*() const {
             return str;
         }
+    };
 
+    template<>
+    class comptime_string<0> {
+    public:
+        consteval size_t len() const { return 0; }   
     };
 }

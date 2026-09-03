@@ -51,6 +51,7 @@
 .endm
 
 /* ================== mischellaneous ===================== */
+
 .global get_irq
 get_irq:
     mrs x0, icc_iar1_el1
