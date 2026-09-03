@@ -7,13 +7,18 @@
 
 namespace mstd {
 
+    template<typename T, typename Tt = std::remove_cvref_t<T>>
+    concept char_type
+        = std::is_same_v<Tt, char>
+        || std::is_same_v<Tt, unsigned char>;
+
     template<typename T>
     concept signed_integer 
-        = std::is_integral_v<T> && std::is_signed_v<T>;
+        = std::is_integral_v<T> && std::is_signed_v<T> && !char_type<T>;
 
     template<typename T>
     concept unsigned_integer 
-        = (std::is_integral_v<T> && !std::is_signed_v<T>) || std::is_pointer_v<T>;
+        = (std::is_integral_v<T> && !std::is_signed_v<T> && !char_type<T>) || std::is_pointer_v<T>;
 
     const char digits[] = "0123456789abcdef";
 
@@ -168,4 +173,12 @@ namespace mstd {
             .width = 0
         };
     };
+
+    template<fmt_buffer FmtBuf, char_type C>
+    fmt_result write_format(FmtBuf& buf, const C& c, fmt_spec fmt){
+        fmt_result res{};
+        if(buf.putc(c)) res.written++;
+        else res.remainder++;
+        return res;
+    }
 }

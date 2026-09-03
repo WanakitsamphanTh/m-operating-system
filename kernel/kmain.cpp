@@ -18,5 +18,6 @@ extern "C" int kmain(){
     console.writeln("integer ", 0);
     console.writeln("x =  ", x);
     console.writeln("&x = ", &x);
+    console.writeln("Hello",'!', '\n');
     return 0;
 }

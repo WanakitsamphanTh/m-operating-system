@@ -70,7 +70,8 @@ el1_boot:
     bl printk
 
     /* enable interrupts */
-    msr daifclr, #0b0010
+    // currently disable for debugging
+    //msr daifclr, #0b0010
 
     /* enter kernel */
 enter_kernel:

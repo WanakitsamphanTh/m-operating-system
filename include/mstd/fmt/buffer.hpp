@@ -8,7 +8,9 @@ namespace mstd {
     public:
         backward_buffer(): iter(buf + capacity - 1){}
         bool putc(char c) {
-            if(iter < buf) return false;
+            if(iter < buf) {
+                return false;
+            }
             *(iter--) = c;
             return true;
         }

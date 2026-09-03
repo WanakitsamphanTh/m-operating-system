@@ -65,15 +65,15 @@ namespace mstd {
             write(fmt);
         }
 
-        template<class Arg, class... Args>
-        constexpr auto write(Arg&& arg, Args&&... args) {
-            write(forward<Arg>(arg));
-            write(forward<Args>(args)...);
+        template<class... Args>
+        constexpr auto write(Args&&... args) {
+            (write(forward<Args>(args)), ...);
         }
 
         template<class... Args>
         constexpr auto writeln(Args&&... args) {
-            write(forward<Args>(args)..., "\n");
+            (write(forward<Args>(args)),...);
+            write('\n');
         }
 
         template<size_t N>
