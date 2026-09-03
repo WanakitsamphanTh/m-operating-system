@@ -12,6 +12,6 @@ using mstd::scope_guard;
 extern "C" int kmain(){
     MK::KernelConsole console;
     console.write("Hello world\n");
-    console.write("This is {}", 100);
+    console.write("This is ", 100);
     return 0;
 }
