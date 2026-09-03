@@ -26,6 +26,7 @@ namespace MK {
             }
         };
         UARTBuffer uart_buf;
+        
     public:
         using PrintResult = mstd::result<size_t,mstd::format_error>;
         constexpr KernelConsole() = default;
@@ -78,6 +79,11 @@ namespace MK {
                 written++;
             }
             return mstd::result_ok<size_t>(written);
+        }
+
+        template<size_t N, class... Args>
+        constexpr void writeln(const char (&fmt)[N], Args&&... args){
+            
         }
     };
 }

@@ -4,6 +4,7 @@
 #include <utility>
 #include <new>
 #include <functional>
+#include <mstd/lazy.hpp>
 
 
 namespace mstd {

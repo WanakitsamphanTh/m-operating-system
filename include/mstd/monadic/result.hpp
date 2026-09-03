@@ -143,6 +143,15 @@ namespace mstd {
             return move(storage.err);
         }
 
+        maybe<T> safe_take_value() {
+            if(is_ok()) return maybe<T>(take_value());
+            else return nothing;
+        }
+        maybe<E> safe_take_error() {
+            if(is_ok()) return maybe<T>(take_error());
+            else return nothing;
+        }        
+
         /* borrow */
         T& borrow_value() { 
             return storage.val;
@@ -195,7 +204,7 @@ namespace mstd {
         template<class Fn, class G,
             class Result = invoke_result_t<Fn, T&&>
         > requires (is_constructible_v<Result, G>)
-        G then_or_default(Fn&& fn, G&& g) {
+        Result then_or_default(Fn&& fn, G&& g) {
             if(is_ok()) {
                 if constexpr(is_result_t<Result>){
                     using val_type = typename Result::value_type;
@@ -220,7 +229,7 @@ namespace mstd {
 
         template<class Fn, class Result = invoke_result_t<Fn, E&&>> 
             requires (is_same_v<T, Result>)
-        T&& take_or_else(Fn&& fn) {
+        T take_or_else(Fn&& fn) {
             if(is_ok()) return take_value();
             else return invoke(forward<Fn>(fn), take_error());  
         }
@@ -402,6 +411,15 @@ namespace mstd {
             return storage.err;
         }
 
+        maybe<TRef> safe_take_value() {
+            if(is_ok()) return maybe<TRef>(take_value());
+            else return nothing;
+        }
+        maybe<E> safe_take_error() {
+            if(is_ok()) return maybe<T>(take_error());
+            else return nothing;
+        }        
+
         /* borrow */
         template<class U = T>
             requires (!is_const_v<U>)
@@ -456,8 +474,8 @@ namespace mstd {
 
         template<class Fn, class GRef,
             class Result = invoke_result_t<Fn, T&&>
-        > requires (is_reference_v<GRef>)
-        GRef then_or_default(Fn&& fn, GRef g) {
+        > requires (is_convertible_v<Result, GRef>)
+        Result then_or_default(Fn&& fn, GRef&& g) {
             if(is_ok()) {
                 if constexpr(is_result_t<Result>){
                     using val_type = typename Result::value_type;
@@ -470,14 +488,14 @@ namespace mstd {
                     return invoke(forward<Fn>(fn), take_value());
                 }
             }
-            else return g;  
+            else return forward<G>(g);  
         }
 
         template<class Fn, class GRef> 
             requires (is_convertible_v<TRef, GRef>)
-        TRef take_or_default(Fn&& fn, GRef g) {
+        TRef take_or_default(Fn&& fn, GRef&& g) {
             if(is_ok()) return take_value();
-            else return g; 
+            else return forward<G>(g); 
         }
 
         template<class Fn, class Result = invoke_result_t<Fn, E&&>> 
@@ -591,6 +609,10 @@ namespace mstd {
         E&& take_error() {
             return err.take();
         }
+        maybe<E> safe_take_error() {
+            if(is_ok()) return maybe<T>(take_error());
+            else return nothing;
+        }
 
         /* borrow */
         E& borrow_error() { 
@@ -638,7 +660,7 @@ namespace mstd {
         template<class Fn, class G,
             class Result = invoke_result_t<Fn>
         > requires (is_constructible_v<G, Result>)
-        G then_or_default(Fn&& fn, G&& g) {
+        Result then_or_default(Fn&& fn, G&& g) {
             if(is_ok()) {
                 if constexpr(is_result_t<Result>){
                     using val_type = typename Result::value_type;
@@ -651,7 +673,7 @@ namespace mstd {
                     return invoke(forward<Fn>(fn));
                 }
             }
-            else return g;
+            else return forward<G>(g);
         }
 
         // apply
