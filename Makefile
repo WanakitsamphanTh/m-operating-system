@@ -24,7 +24,7 @@ CFLAGS = \
 	-nostdlib \
 	-Iinclude \
 	-I include/mstd \
-	-O3 \
+	-Os \
 	-mcpu=cortex-a53
 
 ASFLAGS = -g

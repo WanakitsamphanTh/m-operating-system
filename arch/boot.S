@@ -3,8 +3,7 @@
     set_up_vec_table_msg: .asciz "initialized exception vector table\n"
     init_kernel_msg: .asciz "initialized kernel\n"
     
-.text
-
+.section .text.boot
 .global _start
 _start:
     /*initializing stack*/
@@ -70,8 +69,7 @@ el1_boot:
     bl printk
 
     /* enable interrupts */
-    // currently disable for debugging
-    //msr daifclr, #0b0010
+    msr daifclr, #0b0010
 
     /* enter kernel */
 enter_kernel:

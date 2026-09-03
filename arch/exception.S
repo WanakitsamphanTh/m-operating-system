@@ -1,4 +1,4 @@
-.text
+.section .text.boot
 .equ CTX_SIZE, 272
 .macro save_context elr, spsr, esr
     sub sp, sp, #CTX_SIZE
@@ -77,6 +77,7 @@ return_from_el3:
     eret
 
 /* ==================== EL1 ==================== */
+.section .text.vector_table
 .align 11   /* 2^11 bytes align */
 .global el1_vector_table
 el1_vector_table:

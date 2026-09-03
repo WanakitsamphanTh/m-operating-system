@@ -3,8 +3,15 @@ ENTRY(_start)
 SECTIONS
 {
     . = 0x40080000;
+    .boot : {
+        KEEP(*(.text.boot*))
+    }
+    . = ALIGN(2048);
+    .vectors : {
+        KEEP(*(.text.vector_table*))
+    }
     .text : {
-        *(.text*)
+        *(.text)
     }
     .rodata : {
         *(.rodata*)
@@ -19,7 +26,7 @@ SECTIONS
         . = ALIGN(16);
 
         STACK_BOTTOM = .;
-        . += 0x1000; 
+        . += 0x10000; 
         STACK_TOP = .;
     }
 }

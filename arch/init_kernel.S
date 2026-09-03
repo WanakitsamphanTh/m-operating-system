@@ -14,7 +14,7 @@
     enable_dist_msg: .asciz "enabled distributor\n"
     config_timer_msg: .asciz "configured timer\n"
 
-.text
+.section .text.boot
 .global init_kernel
 init_kernel:
     stp x29, x30, [sp, #-16]!
