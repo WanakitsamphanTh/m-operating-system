@@ -6,6 +6,7 @@
 #include <type_traits>
 
 namespace mstd {
+
     template<typename T>
     concept signed_integer 
         = std::is_integral_v<T> && std::is_signed_v<T>;
@@ -14,11 +15,13 @@ namespace mstd {
     concept unsigned_integer 
         = (std::is_integral_v<T> && !std::is_signed_v<T>) || std::is_pointer_v<T>;
 
+    const char digits[] = "0123456789abcdef";
+
     template<fmt_buffer FmtBuf, signed_integer I>
-    fmt_result write_format(FmtBuf& buf, const I& original_val, fmt_spec& fmt){
+    fmt_result write_format(FmtBuf& buf, const I& original_val, fmt_spec fmt){
         int64_t val = static_cast<int64_t>(original_val);
         backward_buffer tmp;
-        fmt_result result;
+        fmt_result result{};
         bool neg = val < 0;
         if(neg) val = -val;
 
@@ -27,9 +30,9 @@ namespace mstd {
             tmp.putc('0');
         } else {
             while(val > 0) {
-                char dig = val % 10;
+                char dig = digits[val % 10];
                 val /= 10;
-                tmp.putc(dig + '0');
+                tmp.putc(dig);
             }
         }
 
@@ -74,24 +77,32 @@ namespace mstd {
     }
 
     template<fmt_buffer FmtBuf, unsigned_integer UI>
-    fmt_result write_format(FmtBuf& buf, const UI& original_val, fmt_spec& fmt){
-        uint64_t val = static_cast<uint64_t>(original_val);
+    fmt_result write_format(FmtBuf& buf, const UI& original_val, fmt_spec fmt){
+        uint64_t val;
+        if constexpr(!std::is_pointer_v<UI>) val = static_cast<uint64_t>(original_val);
+        else val = reinterpret_cast<uint64_t>(original_val);
         backward_buffer tmp;
-        fmt_result result;
+        fmt_result result{};
 
         uint64_t base = 10;
         switch(fmt.base){
-            case fmt_spec::number_base::bin : base = 2; break;
-            case fmt_spec::number_base::oct : base = 8; break;
-            case fmt_spec::number_base::hex : base = 16; break;
+            case fmt_spec::number_base::bin : 
+                base = 2; 
+                break;
+            case fmt_spec::number_base::oct : 
+                base = 8; 
+                break;
+            case fmt_spec::number_base::hex : 
+                base = 16; 
+                break;
         }
 
         /* into integer */
         if(val == 0) tmp.putc('0');
         else while(val){
-            char dig = val % base;
+            char dig = digits[val % base];
             val /= base;
-            tmp.putc(dig + '0');
+            tmp.putc(dig);
         }
 
         /* zero pad if zero_pad && width > tmp.len() (leave 2 slots) */
