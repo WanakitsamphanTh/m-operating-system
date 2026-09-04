@@ -13,9 +13,10 @@ using mstd::scope_guard;
 
 char str[] = {'O','S',' ', 'S', 'e', 'n', 'd', 'a','i'};
 
-extern "C" int kmain(){
+extern "C" int kmain(uint64_t dtb){
     uart_puts("Try write/writeln\n");
     MK::KernelConsole console;
+    console.writeln("[DTB] ", dtb);
     console.writef("[kernel] start {8h} end {8h} size {}\n", _kernel_start, _kernel_end, _kernel_size);
     console.writef("[rodata] start {8h} end {8h} size {}\n", _rodata_start, _rodata_end, _rodata_size);
     int x = 100;

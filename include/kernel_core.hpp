@@ -8,6 +8,9 @@ extern "C" {
     extern const uint64_t _rodata_start;
     extern const uint64_t _rodata_end;
     extern const uint64_t _rodata_size;
+
+    extern uint64_t dtb_boot;
+
     [[noreturn]] void kernel_halt();
     [[noreturn]] void kernel_panic();
 

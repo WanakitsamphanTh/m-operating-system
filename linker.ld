@@ -28,6 +28,9 @@ SECTIONS
         *(.data*)
     }
 
+    IMAGE_END = .;
+    IMAGE_SIZE = IMAGE_END - KERNEL_START; 
+
     .bss ALIGN(16) : {
         *(.bss*)
         *(COMMON)

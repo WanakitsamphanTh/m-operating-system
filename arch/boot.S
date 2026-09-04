@@ -19,9 +19,31 @@
     init_kernel_msg: .asciz "initialized kernel\n"
     enable_fp_msg: .asciz "enabled FP/NEON\n"
 
+.section .bss
+    .align 3
+    .global dtb_boot
+    dtb_boot: .quad 0
+
 .section .text.boot
 .global _start
 _start:
+    b _boot_start /* code0 */
+    .word 0     /* code1 */
+    .quad 0x80000
+    .quad IMAGE_SIZE
+    .quad 0
+    .quad 0
+    .quad 0
+    .quad 0
+    .word 0x644d5241 /* magic number ARMx64 */
+    .word 0
+
+_boot_start:
+
+    /* store DTB in a callee-saved register */
+    ldr x1, =dtb_boot
+    str x0, [x1]
+
     /*initializing stack*/
     ldr x0, =STACK_TOP
     mov sp, x0
@@ -98,6 +120,8 @@ el1_boot:
 
     /* enter kernel */
 enter_kernel:
+    ldr x1, =dtb_boot
+    ldr x0, [x1]
     bl kmain
 
 .global kernel_halt

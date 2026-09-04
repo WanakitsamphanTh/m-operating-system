@@ -54,7 +54,7 @@ OBJS = $(ASM_OBJS) $(C_OBJS)
 TARGET = $(BUILD)/kernel.elf
 
 
-all: $(TARGET)
+all: $(TARGET) $(BUILD)/kernel.img
 
 
 $(TARGET): $(OBJS)
@@ -69,14 +69,17 @@ $(BUILD)/%.o: $(SRC)/%.cpp
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD)/kernel.img: $(TARGET)
+	$(OBJCOPY) -O binary $< $@
 
-run: $(TARGET)
-	qemu-system-aarch64 \
-		-M virt \
-		-cpu cortex-a53 \
-		-m 512M \
-		-nographic \
-		-kernel $(TARGET)
+
+#run: $(TARGET)
+#	qemu-system-aarch64 \
+#		-M virt \
+#		-cpu cortex-a53 \
+#		-m 512M \
+#		-nographic \
+#		-kernel $(TARGET)
 
 
 clean:
