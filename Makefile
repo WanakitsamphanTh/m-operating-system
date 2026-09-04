@@ -25,6 +25,7 @@ CFLAGS = \
 	-Iinclude \
 	-I include/mstd \
 	-Os \
+	-w \
 	-mcpu=cortex-a53
 
 ASFLAGS = -g

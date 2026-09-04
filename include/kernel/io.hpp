@@ -23,6 +23,7 @@ namespace MK {
                 return c;
             }
         };
+        
     class KernelConsole: public mstd::writer_core<KernelConsole, UARTBuffer> {
         UARTBuffer uart_buf;
     public:

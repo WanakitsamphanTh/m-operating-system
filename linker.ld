@@ -3,23 +3,32 @@ ENTRY(_start)
 SECTIONS
 {
     . = 0x40080000;
+    KERNEL_START = .;
     .boot : {
         KEEP(*(.text.boot*))
     }
-    . = ALIGN(2048);
-    .vectors : {
+
+    .vectors  ALIGN(2048) : {
         KEEP(*(.text.vector_table*))
     }
-    .text : {
+    .text ALIGN(16) : {
         *(.text)
     }
-    .rodata : {
+    KERNEL_END = .;
+    KERNEL_SIZE = . - KERNEL_START;
+    
+    RODATA_START = .;
+    .rodata ALIGN(16) : {
         *(.rodata*)
     }
-    .data : {
+    RODATA_END = .;
+    RODATA_SIZE = . - RODATA_START;
+
+    .data ALIGN(16) : {
         *(.data*)
     }
-    .bss : {
+
+    .bss ALIGN(16) : {
         *(.bss*)
         *(COMMON)
 

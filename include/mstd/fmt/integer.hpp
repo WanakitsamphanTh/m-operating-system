@@ -1,11 +1,18 @@
 #pragma once
 #include "buffer.hpp"
 #include "mstd/fmt/fmt_core.hpp"
+#include "mstd/fmt/string.hpp"
 #include "mstd/fmt/buffer.hpp"
+#include "string.hpp"
 #include <cstdint>
 #include <type_traits>
 
 namespace mstd {
+
+    template<typename T, typename Tt = std::decay_t<T>>
+    concept char_type
+        = std::is_same_v<Tt, char>
+        || std::is_same_v<Tt, unsigned char>;
 
     template<typename T>
     concept signed_integer 
@@ -13,7 +20,8 @@ namespace mstd {
 
     template<typename T>
     concept unsigned_integer 
-        = (std::is_integral_v<T> && !std::is_signed_v<T> && !char_type<T>) || std::is_pointer_v<T>;
+        = (std::is_integral_v<T> && !std::is_signed_v<T> && !char_type<T>) 
+        || std::is_pointer_v<T>;
 
     template<typename T>
     concept pointer_type = std::is_pointer_v<T>;
@@ -33,7 +41,7 @@ namespace mstd {
 
     /*  functions implementation */
     template<fmt_buffer FmtBuf>
-    fmt_result write_format(FmtBuf& buf, const char& c, fmt_spec fmt){
+    fmt_result write_format(FmtBuf& buf, char c, fmt_spec fmt){
         fmt_result res{};
         if(buf.putc(c)) res.written++;
         else res.remainder++;
@@ -64,8 +72,8 @@ namespace mstd {
             tmp.putc('0');
         } else {
             while(magnitude > 0) {
-                char dig = digits[magnitude % 10];
-                magnitude /= 10;
+                char dig = digits[magnitude % base];
+                magnitude /= base;
                 tmp.putc(dig);
             }
         }
@@ -128,13 +136,23 @@ namespace mstd {
     fmt_result write_format(FmtBuf& buf, const I& original_val, fmt_spec fmt){
         bool neg = original_val < 0;
         uint64_t magnitude = neg 
-                            ? uint64_t{-(original_val + 1)} - 1 
+                            ? uint64_t{-(original_val + 1)} + 1 
                             : uint64_t{original_val};
         return write_format_integer_implementation<FmtBuf>(buf, magnitude, neg, fmt);
     }
 
     template<fmt_buffer FmtBuf, unsigned_integer UI>
     fmt_result write_format(FmtBuf& buf, const UI& original_val, fmt_spec fmt){
-        return write_format_integer_implementation<FmtBuf>(buf, original_val, false, fmt);
+        if constexpr (std::is_pointer_v<UI>) {
+            if constexpr (std::is_same_v<UI, const char*> || std::is_same_v<UI, char*>){
+                return write_format_str<FmtBuf>(buf, original_val, fmt);
+            }
+            else {
+                uint64_t magnitude = reinterpret_cast<uint64_t>(reinterpret_cast<uintptr_t>(original_val));
+                return write_format_integer_implementation<FmtBuf>(buf, magnitude, false, fmt);
+            }
+        } else {
+            return write_format_integer_implementation<FmtBuf>(buf, original_val, false, fmt);
+        }
     }
 }

@@ -22,10 +22,10 @@ namespace mstd {
 
         template<size_t i, char c>
         consteval auto split() const {
-            if constexpr(i == N) {
-                return std::make_pair(substr<0,i>(), comptime_string<0>());
+            if constexpr(i == N - 1) {
+                return std::make_pair(substr<0,i>(), comptime_string<1>(""));
             } else if constexpr (str[i] == c){
-                return std::make_pair(substr<0,i>(), substr<i+1,N>());
+                return std::make_pair(substr<0,i>(), substr<i+1,N - 1>());
             } else {
                 return split<i+1, c>();
             }
@@ -37,7 +37,7 @@ namespace mstd {
         }
 
         /* operator */
-        consteval char& operator[](size_t i) const {
+        constexpr char operator[](size_t i) const {
             return str[i];
         }
 
@@ -66,7 +66,7 @@ namespace mstd {
         consteval auto substr() const {
             static_assert(beg < end, "invalid slice size");
             if(beg >= N) return comptime_string<0>();
-            const size_t bound = end > N ? N : end;
+            const size_t bound = end > N - 1? N - 1 : end;
             char sliced[bound - beg + 1];
             for(size_t i = beg; i < bound; i++)
                 sliced[i - beg] = str[i];
@@ -77,11 +77,7 @@ namespace mstd {
         operator const char*() const {
             return str;
         }
-    };
 
-    template<>
-    class comptime_string<0> {
-    public:
-        consteval size_t len() const { return 0; }   
+        consteval size_t len() const { return N - 1; }
     };
 }

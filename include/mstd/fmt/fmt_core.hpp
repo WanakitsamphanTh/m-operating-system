@@ -28,11 +28,11 @@ namespace mstd {
     };
 
     struct fmt_spec {
-        enum class alignment {unaligned, left, right} align;
-        bool show_sign;
-        bool show_base;
-        bool zero_pad;
-        enum class number_base {bin, oct, dec, hex} base;
+        enum class alignment {unaligned, left, right} align: 2;
+        bool show_sign: 1;
+        bool show_base: 1;
+        bool zero_pad: 1;
+        enum class number_base {bin, oct, dec, hex} base: 3;
         size_t precision;
         size_t width;
     };
@@ -70,14 +70,13 @@ namespace mstd {
         static constexpr fmt_spec spec = default_fmt<TConcrete>::spec;
     };
 
-    template<size_t N>
-    constexpr fmt_spec parse_fmt(comptime_string<N> spec, fmt_spec& fmt){
+    void parse_fmt(const char* spec, fmt_spec& fmt){
         /*
         sign: '+' | none
         zeropad: '0' | none
         width: [1..9] digit+ | none
         precision : '.' digit+ | none
-        base: b | x | h | none
+        base: b | o | h | none
         alignment: 'L' | 'R' | non
         */
         size_t i = 0;
@@ -86,7 +85,7 @@ namespace mstd {
             i++;
         }
         if(spec[i] == '0') {
-            fmt.show_base = true;
+            fmt.zero_pad = true;
             i++;
         }
         size_t w = 0;
@@ -126,8 +125,5 @@ namespace mstd {
             fmt.align = fmt_spec::alignment::right;
             i++;
         }
-
-        return fmt;
     }
-
 }

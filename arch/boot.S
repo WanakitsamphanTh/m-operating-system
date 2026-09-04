@@ -2,7 +2,12 @@
     enter_el1_msg: .asciz "entered EL1\n"
     set_up_vec_table_msg: .asciz "initialized exception vector table\n"
     init_kernel_msg: .asciz "initialized kernel\n"
-    
+    _kernel_start: .quad KERNEL_START
+    _kernel_end: .quad KERNEL_END
+    _kernel_size: .quad KERNEL_SIZE
+    _rodata_start: .quad RODATA_START
+    _rodata_end: .quad RODATA_END
+    _rodata_size: .quad RODATA_SIZE
 .section .text.boot
 .global _start
 _start:
@@ -69,7 +74,7 @@ el1_boot:
     bl printk
 
     /* enable interrupts */
-    msr daifclr, #0b0010
+    //msr daifclr, #0b0010
 
     /* enter kernel */
 enter_kernel:
