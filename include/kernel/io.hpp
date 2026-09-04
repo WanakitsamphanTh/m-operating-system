@@ -2,8 +2,6 @@
 #include "mstd/fmt.hpp"
 #include <type_traits>
 
-extern "C" int printk(const char* str, ...);
-
 namespace MK {
     using std::forward;
     
@@ -27,6 +25,7 @@ namespace MK {
     class KernelConsole: public mstd::writer_core<KernelConsole, UARTBuffer> {
         UARTBuffer uart_buf;
     public:
+        KernelConsole() = default;
         UARTBuffer& buffer() { return uart_buf; }
     };
 }

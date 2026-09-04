@@ -17,15 +17,6 @@ namespace mstd {
     template<class buf_t>
     using fmt_fn = void (*)(buf_t&, const void*, fmt_spec&);
 
-    /*
-    template<class buf_t, class T>
-    struct writef_implementation {
-        static void fn(buf_t& w, const void* ptr, fmt_spec& spec){
-            const T& arg = *reinterpret_cast<const T*>(ptr);
-            write_format<buf_t>(w, arg, spec);
-        }
-    };*/
-
     template<class buf_t, class T>
     struct writef_implementation {
         static void fn(buf_t& w, const void* ptr, fmt_spec& spec){

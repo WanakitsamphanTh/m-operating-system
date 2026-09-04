@@ -33,7 +33,7 @@ extern "C" Ctx* irq_l32(Ctx* ctx);
 extern "C" Ctx* fiq_l32(Ctx* ctx);
 extern "C" Ctx* serr_l32(Ctx* ctx);
 
-void common_irq_handler(Ctx* ctx);
+Ctx* common_irq_handler(Ctx* ctx);
 
 extern "C" Ctx* return_from_exception(Ctx* ctx);
 

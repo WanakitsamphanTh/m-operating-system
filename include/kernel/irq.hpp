@@ -1,6 +1,8 @@
 #pragma once
+#include "el_handler.hpp"
 #include "mstd/monadic/maybe.hpp"
 #include "kernel/el_handler.hpp"
+#include <cstdint>
 
 extern "C" uint64_t get_irq();
 extern "C" uint64_t end_irq(uint64_t irq);
@@ -11,30 +13,19 @@ using mstd::nothing;
 
 namespace MK {
     class IRQ {
-        Ctx& ctx;
-        maybe<IRQCode> code;
+        uint64_t iar;
     public:
-        static IRQ getIRQ(Ctx* ctx){
-            return IRQ(*ctx, get_irq());
-        }
-        
-        IRQ(Ctx& ctx, uint64_t irq): ctx(ctx), code(some<IRQCode>(static_cast<IRQCode>(irq))){}
-        IRQ(const IRQ&) = delete;
-        IRQ(IRQ&& other): ctx(other.ctx), code(other.code){
-            code = nothing;
+        IRQ(uint64_t iar): iar(iar){}
+        static IRQ begin(){
+            return IRQ(get_irq());
         }
 
-        Ctx& getContext() {
-            return ctx;
+        void end() const {
+            end_irq(iar);
         }
         
-        maybe<IRQCode> getCode(){
-            return code;
-        }
-        
-        ~IRQ(){
-            if(code)
-                end_irq(static_cast<uint64_t>(*code));
+        IRQCode getCode() const {
+            return IRQCode{iar};
         }
     };
 }

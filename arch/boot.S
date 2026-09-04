@@ -1,13 +1,24 @@
 .section .rodata
-    enter_el1_msg: .asciz "entered EL1\n"
-    set_up_vec_table_msg: .asciz "initialized exception vector table\n"
-    init_kernel_msg: .asciz "initialized kernel\n"
+    .align 3
+    .global _kernel_start
+    .global _kernel_end
+    .global _kernel_size
+    .global _rodata_start
+    .global _rodata_end
+    .global _rodata_size
+
     _kernel_start: .quad KERNEL_START
     _kernel_end: .quad KERNEL_END
     _kernel_size: .quad KERNEL_SIZE
     _rodata_start: .quad RODATA_START
     _rodata_end: .quad RODATA_END
     _rodata_size: .quad RODATA_SIZE
+
+    enter_el1_msg: .asciz "entered EL1\n"
+    set_up_vec_table_msg: .asciz "initialized exception vector table\n"
+    init_kernel_msg: .asciz "initialized kernel\n"
+    enable_fp_msg: .asciz "enabled FP/NEON\n"
+
 .section .text.boot
 .global _start
 _start:
@@ -73,8 +84,17 @@ el1_boot:
     ldr x0, =init_kernel_msg
     bl printk
 
+    /* enable fp/neon */
+    mrs x0, cpacr_el1
+    orr x0, x0, #(3 << 20)
+    msr cpacr_el1, x0
+    isb
+    
+    ldr x0, =enable_fp_msg
+    bl printk
+    
     /* enable interrupts */
-    //msr daifclr, #0b0010
+    msr daifclr, #0b0010
 
     /* enter kernel */
 enter_kernel:
@@ -85,12 +105,3 @@ kernel_halt:
 1:
     wfi
     b 1b    // jmp 1
-
-/* Enable FP/NEON */
-.global enable_fp_neon
-enable_fp_neon:
-    mrs x0, cpacr_el1
-    orr x0, x0, #(3 << 20)
-    msr cpacr_el1, x0
-    isb
-    ret

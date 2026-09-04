@@ -27,7 +27,7 @@
 
 .macro restore_context elr, spsr, esr
     mov sp, x0
-    ldp x0, x1, [sp, #0]
+    /* store x0, x1 last (used as scratch registers to restore system registers) */
     ldp x2, x3, [sp, #16]
     ldp x4, x5, [sp, #32]
     ldp x6, x7, [sp, #48]
@@ -47,6 +47,7 @@
     ldp x0, x1, [sp, #256]
     msr \spsr, x0
     msr \esr, x1
+    ldp x0, x1, [sp, #0]
     add sp, sp, #CTX_SIZE
 .endm
 

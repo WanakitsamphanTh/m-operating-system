@@ -6,23 +6,23 @@
 
 using MK::IRQ;
 
-void common_irq_handler(Ctx* ctx){
-    auto irq = IRQ::getIRQ(ctx);
-
+Ctx* common_irq_handler(Ctx* ctx){
     //printk("elrt\t=%u\t", irq.getContext().elr);
     //printk("splrt\t=%u\t", irq.getContext().splr);
     //printk("esr\t=%u\n", irq.getContext().esr);
 
-    irq.getCode().then([](IRQCode&& code){
-        switch(code){
-            case IRQCode::VTimerInterrupt:
-                reset_timer();
-                //printk("Timer interrupt\n");
-                break;
-            default:
-                //printk("Unknown IRQ\n");
-                break;
-        }
-    });
+    auto irq = MK::IRQ::begin();
 
+    switch(irq.getCode()){
+        case IRQCode::VTimerInterrupt:
+            //printk("\ninterrupt!\n");
+            reset_timer();
+            break;
+        default:
+            //printk("Unknown IRQ\n");
+            break;
+    }
+
+    irq.end();
+    return ctx;
 }

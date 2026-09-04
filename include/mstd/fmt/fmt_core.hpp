@@ -4,7 +4,6 @@
 #include <concepts>
 #include <type_traits>
 #include "mstd/monadic/maybe.hpp"
-#include "mstd/comptime/string.hpp"
 
 namespace mstd {
     using std::same_as;
@@ -37,8 +36,8 @@ namespace mstd {
         size_t width;
     };
 
-    template<fmt_buffer FmtBuf, class T>
-    fmt_result write_format(FmtBuf& buf, const T& val, fmt_spec fmt);
+    //template<fmt_buffer FmtBuf, class T>
+    //fmt_result write_format(FmtBuf& buf, const T& val, fmt_spec fmt);
 
     /* 
         default formatter

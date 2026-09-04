@@ -5,6 +5,7 @@
 .equ GICR_WAKER, GICR_BASE + 0x0014
 .equ GICR_SGI_BASE, GICR_BASE + 0x10000
 .equ GICR_ISENABLER0, GICR_SGI_BASE + 0x0100
+.equ GICR_ICENABLER0, GICR_SGI_BASE + 0x0180
 
 .section .rodata
     init_gic_msg: .asciz "initialized GIC\n"
@@ -139,6 +140,17 @@ reset_timer:
     add x0, x0, x1
     /* set ticks */
     msr CNTV_CVAL_EL0, x0
+
+    isb
+    ret
+
+.global disable_timer
+disable_timer:
+    /* current deadline */
+    ldr x0, =GICR_ICENABLER0
+    ldr w1, [x0]
+    orr w1, w1, #(1 << 27)   /* disable IRQ virtual timer */
+    str w1, [x0]
 
     isb
     ret
