@@ -2,12 +2,23 @@
 #include <cstdint>
 
 extern "C" {
-    extern const uint64_t _kernel_start;
-    extern const uint64_t _kernel_end;
+    extern const uint64_t _kernel_start_addr;
+    extern const uint64_t _kernel_end_addr;
     extern const uint64_t _kernel_size;
-    extern const uint64_t _rodata_start;
-    extern const uint64_t _rodata_end;
-    extern const uint64_t _rodata_size;
+    extern const uint64_t _kernel_text_start_addr;
+    extern const uint64_t _kernel_text_end_addr;
+    extern const uint64_t _kernel_text_size;
+    extern const uint64_t _kernel_rodata_start_addr;
+    extern const uint64_t _kernel_rodata_end_addr;
+    extern const uint64_t _kernel_rodata_size;
+    extern const uint64_t _kernel_data_start_addr;
+    extern const uint64_t _kernel_data_end_addr;
+    extern const uint64_t _kernel_data_size;
+    
+    extern uint8_t* _el0_page_table;
+    extern uint8_t* _el1_page_table;
+    extern uint8_t* _el2_page_table;
+    extern uint8_t* _el3_page_table;
 
     extern uint64_t dtb_boot;
 

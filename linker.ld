@@ -4,6 +4,7 @@ SECTIONS
 {
     . = 0x40080000;
     KERNEL_START = .;
+    KERNEL_TEXT_START = .;
     .boot : {
         KEEP(*(.text.boot*))
     }
@@ -14,31 +15,34 @@ SECTIONS
     .text ALIGN(16) : {
         *(.text)
     }
-    KERNEL_END = .;
-    KERNEL_SIZE = . - KERNEL_START;
+    KERNEL_TEXT_END = .;
+    KERNEL_TEXT_SIZE = . - KERNEL_TEXT_START;
     
-    RODATA_START = .;
+    KERNEL_RODATA_START = .;
     .rodata ALIGN(16) : {
         *(.rodata*)
     }
-    RODATA_END = .;
-    RODATA_SIZE = . - RODATA_START;
+    KERNEL_RODATA_END = .;
+    KERNEL_RODATA_SIZE = . - KERNEL_RODATA_START;
 
+    KERNEL_DATA_START = .;
     .data ALIGN(16) : {
         *(.data*)
     }
 
-    IMAGE_END = .;
-    IMAGE_SIZE = IMAGE_END - KERNEL_START; 
-
     .bss ALIGN(16) : {
         *(.bss*)
         *(COMMON)
-
-        . = ALIGN(16);
-
-        STACK_BOTTOM = .;
-        . += 0x100000; 
-        STACK_TOP = .;
     }
+
+    KERNEL_DATA_END = .;
+    KERNEL_DATA_SIZE = . - KERNEL_DATA_START;
+
+    KERNEL_END = .;
+    KERNEL_SIZE = . - KERNEL_START; 
+
+    . = ALIGN(16);
+    STACK_BOTTOM = .;
+    . += 0x100000; 
+    STACK_TOP = .;
 }

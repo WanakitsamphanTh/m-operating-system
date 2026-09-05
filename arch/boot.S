@@ -1,18 +1,36 @@
 .section .rodata
     .align 3
-    .global _kernel_start
-    .global _kernel_end
+    .global _kernel_start_addr
+    .global _kernel_end_addr
     .global _kernel_size
-    .global _rodata_start
-    .global _rodata_end
-    .global _rodata_size
+    .global _kernel_text_start_addr
+    .global _kernel_text_end_addr
+    .global _kernel_text_size
+    .global _kernel_rodata_start_addr
+    .global _kernel_rodata_end_addr
+    .global _kernel_rodata_size
+    .global _kernel_data_start_addr
+    .global _kernel_data_end_addr
+    .global _kernel_data_size
 
-    _kernel_start: .quad KERNEL_START
-    _kernel_end: .quad KERNEL_END
+    .extern _el0_page_table
+    .extern _el1_page_table
+    .extern _el2_page_table
+    .extern _el3_page_table
+    
+
+    _kernel_start_addr: .quad KERNEL_START
+    _kernel_end_addr: .quad KERNEL_END
     _kernel_size: .quad KERNEL_SIZE
-    _rodata_start: .quad RODATA_START
-    _rodata_end: .quad RODATA_END
-    _rodata_size: .quad RODATA_SIZE
+    _kernel_text_start_addr: .quad KERNEL_START
+    _kernel_text_end_addr: .quad KERNEL_END
+    _kernel_text_size: .quad KERNEL_TEXT_SIZE
+    _rodata_start_addr: .quad KERNEL_RODATA_START
+    _rodata_end_addr: .quad KERNEL_RODATA_END
+    _rodata_size: .quad KERNEL_RODATA_SIZE
+    _data_start_addr: .quad KERNEL_DATA_START
+    _data_end_addr: .quad KERNEL_DATA_END
+    _data_size: .quad KERNEL_DATA_SIZE
 
     enter_el1_msg: .asciz "entered EL1\n"
     set_up_vec_table_msg: .asciz "initialized exception vector table\n"
@@ -30,7 +48,7 @@ _start:
     b _boot_start /* code0 */
     .word 0     /* code1 */
     .quad 0x80000
-    .quad IMAGE_SIZE
+    .quad KERNEL_SIZE
     .quad 0
     .quad 0
     .quad 0

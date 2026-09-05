@@ -1,5 +1,11 @@
 #include "kernel_core.hpp"
 #include <cstdarg>
+#include <cstdint>
+
+uint8_t* _el0_page_table;
+uint8_t* _el1_page_table;
+uint8_t* _el2_page_table;
+uint8_t* _el3_page_table;
 
 extern "C" [[noreturn]] void kernel_panic(){
     printk("kernel panic!");

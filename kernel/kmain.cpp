@@ -45,15 +45,27 @@ extern "C" int kmain(uint8_t* dtb){
     for(size_t i = 0; i < regions.num; i++){
         size_t off = i * entry_size;
         regions[i].base = 
-            uint64_t(mem_reg.u32_at(4 + off).take()) << 32
-            | uint64_t(mem_reg.u32_at(off).take());
+            uint64_t(mem_reg.u32_at(off).take()) << 32
+            | uint64_t(mem_reg.u32_at(off + 4).take());
         regions[i].size = 
-                uint64_t(mem_reg.u32_at(8 + off).take()) << 32
-                | uint64_t(mem_reg.u32_at(12 + off).take());
-        console.writef("regions[{}] base {} size {}\n", i, as_ptr(regions[i].base), regions[i].size);
+                uint64_t(mem_reg.u32_at(12 + off).take()) << 32
+                | uint64_t(mem_reg.u32_at(8 + off).take());
+        console.writef("regions[{}] base 0x{016h} size 0x{016h}\n", i, regions[i].base, regions[i].size);
     }
 
+    uint8_t* page_start = reinterpret_cast<uint8_t*>(align<4096>(_kernel_end_addr + _kernel_size));
+    console.writef("page starts at {}\n", page_start);
 
+    /* set up page table */
+    _el0_page_table = page_start;
+    _el1_page_table = page_start + 4096;
+    _el2_page_table = page_start + 8192;
+    _el3_page_table = page_start + 12288;
+
+    console.writef("EL0 page table {}\n", mstd::as_ptr(_el0_page_table));
+    console.writef("EL1 page table {}\n", mstd::as_ptr(_el1_page_table));
+    console.writef("EL2 page table {}\n", mstd::as_ptr(_el2_page_table));
+    console.writef("EL3 page table {}\n", mstd::as_ptr(_el3_page_table));
 
     return 0;
 }

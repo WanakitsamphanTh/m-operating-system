@@ -35,7 +35,7 @@ namespace mstd {
             .zero_pad = true,
             .base = fmt_spec::number_base::hex,
             .precision = static_cast<size_t>(UINT64_MAX),
-            .width = 0
+            .width = 18
         };
     };
 
@@ -156,6 +156,8 @@ namespace mstd {
         }
     }
 
-    template<typename Ptr>
-    void* as_ptr(Ptr ptr){ return reinterpret_cast<void*>(ptr); }
+    template<typename T>
+    void* as_ptr(T* ptr){ return reinterpret_cast<void*>(ptr); }
+    template<typename T>
+    const void* as_ptr(const T* ptr){ return reinterpret_cast<void*>(ptr); }
 }
