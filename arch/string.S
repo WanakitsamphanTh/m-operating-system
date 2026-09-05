@@ -74,3 +74,18 @@ memset: /* size_t memset(char*, char, size_t) */
 1:
     sub x0, x0, x10
     ret
+
+.global strchr
+strchr:     /* const char* strchr(const char*, char) */
+    cbz w1, 2f
+1:
+    ldrb w9, [x0]
+    cmp w9, w1
+    b.eq 3f
+    cbz w9, 2f
+    add x0, x0, #1
+    b 1b
+2:
+    mov x0, xzr     /* *w9 == '\0' -> return 0 */
+3:
+    ret

@@ -69,6 +69,7 @@ namespace mstd {
                         i++;
                     } else {
                         /* some form of error handling*/
+                        get_buffer().write("{?}", 3);
                     }
                     iter = fmt_end + 1;
                 } else if(*iter == '\'' && *(iter + 1) == '{'){

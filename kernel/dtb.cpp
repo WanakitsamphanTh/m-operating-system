@@ -40,6 +40,7 @@ uint32_t be_uint32_t::to_le() const{
 
 namespace MK {
     using mstd::memcmp;
+    using mstd::strchr;
 
     const char* FDTProperty::get_name(FDT& fdt) const { 
         return reinterpret_cast<const char*>(fdt.base_ptr) 
@@ -77,56 +78,124 @@ namespace MK {
         );
     }
 
-    mstd::maybe<const FDTHeader&> FDT::find_node_prefix(const char* node_name) const {
-        auto ptr = this->base_ptr + this->struct_off;
-        auto len = strlen(node_name);
+     mstd::maybe<const FDTNode&> FDT::find_node(const char* path_name) const {
+        return find_node(path_name, false);
+    }
+    mstd::maybe<const FDTNode&> FDT::find_node_prefix(const char* path_name) const{
+        return find_node(path_name, true);
+    }
+
+    mstd::maybe<const FDTNode&> FDT::find_node(const char* path_name, bool as_prefix) const {
+        const auto& root = *reinterpret_cast<const FDTNode*>(this->struct_off + this->base_ptr);
+        if(*path_name == '/') path_name++;
+        if(*path_name == '\0') return mstd::some<const FDTNode&>(root);
+        else return root.find_node(path_name, as_prefix);
+    }
+
+    mstd::maybe<const FDTNode&> FDTNode::find_node(const char* path_name) const {
+        return this->find_node(path_name, false);
+    }
+    mstd::maybe<const FDTNode&> FDTNode::find_node_prefix(const char* path_name) const{
+        return this->find_node(path_name, true);
+    }
+
+    mstd::maybe<const FDTNode&> FDTNode::find_node(const char* node_name, bool as_prefix) const {
+        auto ptr = reinterpret_cast<const uint8_t*>(this);
+        ptr += sizeof(FDTNode) + strlen(this->name) + 1;
+        ptr = align<4>(ptr);    /* move towards the header*/
+
+        auto next = strchr(node_name, '/');
+        auto len = next ? next - node_name : strlen(node_name);
+        bool terminal = next == nullptr;
+
         while(true){
             auto tag = static_cast<MK::FDTNodeType>(
                 static_cast<uint32_t>(
-                    *reinterpret_cast<be_uint32_t*>(ptr)
+                    *reinterpret_cast<const be_uint32_t*>(ptr)
                 )
             );
             switch(tag){
-                case FDTNodeType::BeginNode:{
-                    const auto& node = *reinterpret_cast<MK::FDTHeader*>(ptr);
-                    const char* name = node.name;
-                    auto _len = mstd::strlen(name);
+                case FDTNodeType::BeginNode: {
+                    const auto& node = *reinterpret_cast<const MK::FDTNode*>(ptr);
+                    auto _len = mstd::strlen(node.name);
 
-                    if(memcmp(node_name, name, len) == 0 
-                        && (name[len] == '\0' || name[len] == '@'))
-                            return mstd::some<const FDTHeader&>(node);
+                    bool match;
+                    if(terminal){
+                        // terminal component
+                        if(as_prefix)
+                            match = _len >= len
+                                    && memcmp(node_name, node.name, len) == 0
+                                    && (node.name[len] == '\0' || node.name[len] == '@');
+                        else match = _len == len && memcmp(node_name, node.name, len) == 0;
+                    } else {
+                        // non-terminal component
+                        match = _len == len && memcmp(node_name, node.name, len) == 0;
+                    }
+                    if(match && terminal) return mstd::some<const FDTNode&>(node);
 
-                    ptr += sizeof(MK::FDTHeader) + _len + 1;
-                    ptr = align<4>(ptr);
+                    /* if the parent nodes match */
+                    if(match) return node.find_node(next + 1, as_prefix);
+                    else ptr = node.skip();
+
                     break;
                 }
-                case FDTNodeType::EndNode:
-                    ptr += 4;
-                    break;
                 case FDTNodeType::Nop:
                     ptr += 4;
                     break;
                 case FDTNodeType::Prop: {
-                    auto& node = *reinterpret_cast<MK::FDTProperty*>(ptr);
+                    auto& node = *reinterpret_cast<const MK::FDTProperty*>(ptr);
                     ptr += sizeof(MK::FDTProperty) + node.len;
                     ptr = align<4>(ptr);
                     break;
                 }
-                case FDTNodeType::End:
-                    return mstd::nothing;
                 default:
                     return mstd::nothing;
             }
         }
     }
 
-    mstd::maybe<const FDTProperty&> FDTHeader::search_property(const char* name, FDT& fdt) const {
+    const uint8_t* FDTNode::skip() const {
+        auto ptr = reinterpret_cast<const uint8_t*>(this);
+        ptr += sizeof(FDTNode) + strlen(this->name) + 1;
+        ptr = align<4>(ptr);    /* move towards the header*/
+
+        while(true){
+            auto tag = static_cast<MK::FDTNodeType>(
+                static_cast<uint32_t>(
+                    *reinterpret_cast<const be_uint32_t*>(ptr)
+                )
+            );
+            switch(tag){
+                case FDTNodeType::BeginNode: {
+                    const auto& node = *reinterpret_cast<const MK::FDTNode*>(ptr);
+                    node.skip();
+                    break;
+                }
+                case FDTNodeType::Nop:
+                    ptr += 4;
+                    break;
+                case FDTNodeType::End:
+                case FDTNodeType::EndNode:
+                    ptr += 4;
+                    return ptr;
+                    break;
+                case FDTNodeType::Prop:{
+                    auto& node = *reinterpret_cast<const MK::FDTProperty*>(ptr);
+                    ptr += sizeof(MK::FDTProperty) + node.len;
+                    ptr = align<4>(ptr);
+                    break;
+                }
+            }
+        }
+    }
+
+    mstd::maybe<const FDTProperty&> FDTNode::find_property(const char* name, FDT& fdt) const {
         const uint8_t* strptr = fdt.base_ptr + fdt.string_off;
         MK::FDTNodeType tag = static_cast<MK::FDTNodeType>(static_cast<uint32_t>(this->tag));
 
         if(tag != FDTNodeType::BeginNode)
             return mstd::nothing;
-        auto ptr = align<4>(reinterpret_cast<const uint8_t*>(this) + sizeof(FDTHeader) + strlen(this->name) + 1);
+        auto ptr = align<4>(reinterpret_cast<const uint8_t*>(this) + sizeof(FDTNode) + strlen(this->name) + 1);
         while(true){
             tag =  static_cast<MK::FDTNodeType>(
                 static_cast<uint32_t>(

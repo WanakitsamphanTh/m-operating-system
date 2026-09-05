@@ -13,6 +13,8 @@ namespace mstd {
     fmt_result write_format_str(FmtBuf& buf, const char* str, fmt_spec fmt){
         fmt_result res{};
         /* later implement format specificaiton*/
+        if(str == nullptr)
+            buf.write("(null)", 6);
         size_t precision = fmt.precision;
         while(*str && precision){
             buf.putc(*(str++));

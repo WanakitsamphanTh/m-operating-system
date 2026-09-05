@@ -155,4 +155,7 @@ namespace mstd {
             return write_format_integer_implementation<FmtBuf>(buf, original_val, false, fmt);
         }
     }
+
+    template<typename Ptr>
+    void* as_ptr(Ptr ptr){ return reinterpret_cast<void*>(ptr); }
 }

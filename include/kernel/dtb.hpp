@@ -21,7 +21,7 @@ namespace MK {
 
     struct FDT;
     struct FDTEntry;
-    struct FDTHeader;
+    struct FDTNode;
     struct FDTProperty;
 
     struct FDTEntry {
@@ -29,11 +29,15 @@ namespace MK {
         be_uint64_t size;
     };
 
-    struct FDTHeader {
+    struct FDTNode {
         be_uint32_t tag;
         char name[];
 
-        mstd::maybe<const FDTProperty&> search_property(const char*, FDT&) const;
+        mstd::maybe<const FDTNode&> find_node(const char*) const;
+        mstd::maybe<const FDTNode&> find_node_prefix(const char*) const;
+        mstd::maybe<const FDTNode&> find_node(const char*, bool) const;
+        mstd::maybe<const FDTProperty&> find_property(const char*, FDT&) const;
+        const uint8_t* skip() const;
     };
 
     struct FDTProperty {
@@ -62,7 +66,9 @@ namespace MK {
 
         static constexpr uint32_t magic_number = 0xd00dfeed;
         static mstd::maybe<FDT> try_read_fdt(uint8_t* fdt);
-        mstd::maybe<const FDTHeader&> find_node_prefix(const char*) const;
+        mstd::maybe<const FDTNode&> find_node(const char*) const;
+        mstd::maybe<const FDTNode&> find_node_prefix(const char*) const;
+        mstd::maybe<const FDTNode&> find_node(const char*, bool) const;
     };
 }
 
