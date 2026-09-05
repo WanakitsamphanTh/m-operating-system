@@ -25,7 +25,7 @@ strcmp: /* bool strcmp(const char*, const char*) */
     ret
 
 .global memcmp
-memcmp: /* bool strcmp(const char*, const char*, size_t) */
+memcmp: /* int memcmp(const char*, const char*, size_t) */
     mov x9, x0
     mov x0, xzr
 1:
@@ -52,16 +52,15 @@ strcpy: /* size_t strcmp(char* dst, const char* src) */
     ret
 
 .global memcpy
-memcpy: /* size_t memcpy(char* dst, const char* src, size_t) */
-    mov x10, x1
+memcpy: /* char* memcpy(char* dst, const char* src, size_t) */
+    mov x9, x0
 1:
-    cbz x3, 1f
-    ldrb w9, [x1], #1
-    strb w9, [x0], #1
-    sub x3, x3, #1
+    cbz x2, 1f
+    ldrb w10, [x1], #1
+    strb w10, [x9], #1
+    sub x2, x2, #1
     b 1b
 1:
-    sub x0, x1, x10
     ret
 
 .global memset

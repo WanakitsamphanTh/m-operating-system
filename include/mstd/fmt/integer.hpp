@@ -86,7 +86,7 @@ namespace mstd {
         }
 
         /* other than base 10 : check if type prefix needed*/
-        if(base != 10) {
+        if(base != 10 && fmt.show_base) {
             switch(fmt.base){
                 case fmt_spec::number_base::bin : tmp.putc('b'); break;
                 case fmt_spec::number_base::oct : tmp.putc('o'); break;

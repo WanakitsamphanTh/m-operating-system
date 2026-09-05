@@ -4,8 +4,7 @@
 #include <utility>
 #include <new>
 #include <functional>
-#include <mstd/lazy.hpp>
-
+#include <mstd/core.hpp>
 
 namespace mstd {
     
@@ -25,15 +24,6 @@ namespace mstd {
 
     template<class T> class maybe;
 
-    template<class T, class... Args>
-        requires (!is_reference_v<T> && is_constructible_v<T, Args&&...>)
-    maybe<T> some(Args&&... args);
-
-    template<class TRef, class URef> 
-        requires (is_reference_v<TRef> 
-            && is_convertible_v<URef, remove_reference_t<TRef>&>)
-    maybe<TRef> some(URef ref);
-
     template<class T> class some_t;
     class nothing_t{};
     constexpr nothing_t nothing;
@@ -45,9 +35,6 @@ namespace mstd {
         bool valid;
         maybe(bool valid): valid(valid){}
         
-        T&& move_value() {
-            return move(*reinterpret_cast<T*>(buffer));
-        }
     public:
         template<class U, class... Args>
         requires (!std::is_reference_v<U> &&
@@ -168,30 +155,67 @@ namespace mstd {
         }
 
         /* ownership*/
+        T&& take_unchecked() {
+            return move(*reinterpret_cast<T*>(buffer));
+        }
+
+        T& borrow_unchecked() {
+            return *reinterpret_cast<T*>(buffer);
+        }
+
+        const T& borrow_const_unchecked() const {
+            return *reinterpret_cast<T*>(buffer);
+        }
+        
         T&& take() {
-            return move_value();
+            if(is_valid())
+                return take_unchecked();
+            panic("Empty maybe<T> cannot be taken as value");
         }
 
         const T& borrow_const() const {
-            return *reinterpret_cast<const T*>(buffer);
+            if(is_valid())
+                return *reinterpret_cast<const T*>(buffer);
+            panic("Empty maybe<T> cannot be borrowed as value");
         }
 
         T& borrow() {
-            return *reinterpret_cast<T*>(buffer);
+            if(is_valid())
+                return *reinterpret_cast<T*>(buffer);
+            panic("Empty maybe<T> cannot be borrowed as value");
         }
+
+        T&& take(const char* msg) {
+            if(is_valid())
+                return take_unchecked();
+            panic(msg);
+        }
+
+        const T& borrow_const(const char* msg) const {
+            if(is_valid())
+                return *reinterpret_cast<const T*>(buffer);
+            panic(msg);
+        }
+
+        T& borrow(const char* msg) {
+            if(is_valid())
+                return *reinterpret_cast<T*>(buffer);
+            panic(msg);
+        }
+        
 
         /* operation */
         template<class Fn, class Result = invoke_result_t<Fn, T&&>>
             requires (!is_void_v<Result>)
         maybe<Result> then(Fn&& fn) {
-            if(valid) return maybe<Result>(invoke(forward<Fn>(fn), move_value()));
+            if(valid) return maybe<Result>(invoke(forward<Fn>(fn), take_unchecked()));
             else return nothing;
         }
 
         template<class Fn, class Result = invoke_result_t<Fn, T&&>>
             requires (is_void_v<Result>)
         void then(Fn&& fn) {
-            if(valid) invoke(forward<Fn>(fn), move_value());
+            if(valid) invoke(forward<Fn>(fn), take_unchecked());
         }
 
         template<class Fn, class Result = invoke_result_t<Fn>>
@@ -209,21 +233,21 @@ namespace mstd {
 
         template<class U> requires (is_convertible_v<U, T>)
         T or_default(U&& val) {
-            if(valid) return move_value();
+            if(valid) return take_unchecked();
             else return T(forward<U>(val));
         }
         
         template<class Fn, class U, class Result = invoke_result_t<Fn, T&&>>
             requires (!is_void_v<Result> && is_convertible_v<U, Result>)
         Result then_or_default(Fn&& fn, U&& val) {
-            if(valid) return invoke(forward<Fn>(fn), move_value());
+            if(valid) return invoke(forward<Fn>(fn), take_unchecked());
             else return Result(forward<U>(val));
         }
 
         template<class Fn, class Result = invoke_result_t<Fn>>
             requires (!is_void_v<Result> && is_convertible_v<Result, T>)
         T or_else(Fn&& fn) {
-            if(valid) return move_value();
+            if(valid) return take_unchecked();
             else return invoke(forward<Fn>(fn));
         }
 
@@ -236,35 +260,35 @@ namespace mstd {
         template<class Fn, class Gn, class Result = invoke_result_t<Fn, T&&>>
             requires (!is_void_v<Result> && is_constructible_v<invoke_result_t<Gn>, Result>)
         Result then_or_else(Fn&& fn, Gn&& gn) {
-            if(valid) return invoke(forward<Fn>(fn), move_value());
+            if(valid) return invoke(forward<Fn>(fn), take_unchecked());
             else return invoke(forward<Gn>(gn));
         }
 
         template<class Fn, class Gn, class Result = invoke_result_t<Fn, T&&>>
             requires (is_void_v<Result> && is_void_v<invoke_result_t<Gn>>)
         void then_or_else(Fn&& fn, Gn&& gn) {
-            if(valid) invoke(forward<Fn>(fn), move_value());
+            if(valid) invoke(forward<Fn>(fn), take_unchecked());
             else invoke(forward<Gn>(gn));
         }
 
         template<class Fn, class Result = invoke_result_t<Fn, const T&>>
             requires (!is_void_v<Result>)
         maybe<Result> inspect(Fn&& fn) const {
-            if(valid) return maybe<Result>(invoke(forward<Fn>(fn), borrow_const()));
+            if(valid) return maybe<Result>(invoke(forward<Fn>(fn), borrow_const_unchecked()));
             else return nothing;
         }
 
         template<class Fn, class Result = invoke_result_t<Fn, const T&>>
             requires (is_void_v<Result>)
         void inspect(Fn&& fn) const {
-            if(valid) invoke(forward<Fn>(fn), borrow_const());
+            if(valid) invoke(forward<Fn>(fn), borrow_const_unchecked());
         }
 
         template<class Fn>
             requires (is_invocable_v<Fn, T&>)
         maybe apply(Fn&& fn) {
             if(valid)
-                invoke(forward<Fn>(fn), borrow());
+                invoke(forward<Fn>(fn), borrow_unchecked());
             return *this;
         }
 
@@ -291,42 +315,42 @@ namespace mstd {
         T& borrow_as_if() { return *ptr; }
     public:
         maybe(): maybe(nullptr){}
-        template<class URef>
-            requires (is_convertible_v<URef, T&>)
-        maybe(URef ref): maybe(&ref){}
+        template<class U>
+            requires (is_convertible_v<U&, T&>)
+        maybe(U& ref): maybe(&ref){}
         maybe(nothing_t): maybe(nullptr){}
         maybe& operator=(nothing_t nothing) {
             release();
         }
         
         /* move */
-        template<class URef> requires (is_convertible_v<URef, TRef>)
-        maybe(maybe<URef>&& other): maybe(other.ref){}
+        template<class U> requires (is_convertible_v<U&, TRef>)
+        maybe(maybe<U&>&& other): maybe(other.ref){}
 
-        template<class URef> requires (is_convertible_v<URef, TRef>)
-        maybe& operator=(maybe<URef>&& other){
+        template<class U> requires (is_convertible_v<U&, TRef>)
+        maybe& operator=(maybe<U&>&& other){
             ptr = other.ptr;
         }
 
         /* copy */
-        template<class URef> requires (is_convertible_v<URef, TRef>)
-        maybe(const maybe<URef>& other): maybe(other.ref){}
+        template<class U> requires (is_convertible_v<U&, TRef>)
+        maybe(const maybe<U&>& other): maybe(other.ref){}
 
-        template<class URef> requires (is_convertible_v<URef, TRef>)
-        maybe& operator=(const maybe<URef>& other){
+        template<class U> requires (is_convertible_v<U&, TRef>)
+        maybe& operator=(const maybe<U&>& other){
             ptr = other.ptr;
         }
 
-        template<class URef> requires (is_convertible_v<TRef, URef>)
-        maybe& operator=(URef ref){
+        template<class U> requires (is_convertible_v<U&, TRef>)
+        maybe& operator=(U& ref){
             this->ptr = ref;
         }
 
         /* dereference */
-        template<class VRef> requires(is_convertible_v<TRef, VRef>)
-        operator VRef() { return ptr; }
-        template<class VRef> requires(is_convertible_v<const TRef, VRef>)
-        operator const VRef() const { return ptr; }
+        template<class V> requires(is_convertible_v<TRef, V&>)
+        operator V&() { return ptr; }
+        template<class V> requires(is_convertible_v<const TRef, V&>)
+        operator const V&() const { return ptr; }
 
         template<typename U = T>
             requires (!is_const_v<U>)
@@ -354,32 +378,70 @@ namespace mstd {
         bool is_valid() const noexcept { return ptr != nullptr; }
 
         /* ownership */
-        TRef take() {
+        TRef take_unchecked() { return *ptr; }
+
+        template<class U = std::remove_const_t<T>>
+        const U& borrow_const_unchecked() const { return *ptr; }
+
+        template<typename U = T> requires (!is_const_v<U>)
+        T& borrow_unchecked() {
             return *ptr;
         }
 
-        const T& borrow_const() const {
-            return *ptr;
+        TRef take() {
+            if(is_valid())
+                return *ptr;
+            panic("Empty maybe<T> cannot be borrowed as value");
+        }
+
+        template<class U = std::remove_const_t<T>>
+        const U& borrow_const() const {
+            if(is_valid())
+                return *ptr;
+            panic("Empty maybe<T> cannot be borrowed as value");
         }
 
         template<typename U = T>
             requires (!is_const_v<U>)
         T& borrow() {
-            return *ptr;
+            if(is_valid())
+                return *ptr;
+            panic("Empty maybe<T> cannot be borrowed as value");
+        }
+
+        TRef take(const char* msg) {
+            if(is_valid())
+                return *ptr;
+            panic(msg);
+        }
+
+        template<class U = std::remove_const_t<T>>
+        const U& borrow_const(const char* msg) const {
+            if(is_valid())
+                return *ptr;
+            panic(msg);
+        }
+
+        template<typename U = T>
+            requires (!is_const_v<U>)
+        T& borrow(const char* msg) {
+            if(is_valid())
+                return *ptr;
+            panic(msg);
         }
 
         /* operation*/
         template<class Fn, class Result = invoke_result_t<Fn, T&>>
             requires (!is_void_v<Result>)
         maybe<Result> then(Fn&& fn) {
-            if(is_valid()) return maybe<Result>(invoke(forward<Fn>(fn), borrow()));
+            if(is_valid()) return maybe<Result>(invoke(forward<Fn>(fn), borrow_unchecked()));
             else return nothing;
         }
 
         template<class Fn, class Result = invoke_result_t<Fn, TRef>>
             requires (is_void_v<Result>)
         void then(Fn&& fn) {
-            if(is_valid()) invoke(forward<Fn>(fn), take());
+            if(is_valid()) invoke(forward<Fn>(fn), take_unchecked());
         }
 
         template<class Fn, class Result = invoke_result_t<Fn>>
@@ -397,21 +459,21 @@ namespace mstd {
 
         template<class URef> requires (is_convertible_v<URef,TRef>)
         TRef or_default(URef ref) {
-            if(is_valid()) return take();
+            if(is_valid()) return take_unchecked();
             else return ref;
         }
         
         template<class Fn, class URef, class Result = invoke_result_t<Fn, TRef>>
             requires (!is_void_v<Result> && is_convertible_v<URef, Result>)
         Result then_or_default(Fn&& fn, URef ref) {
-            if(is_valid()) return invoke(forward<Fn>(fn), take());
+            if(is_valid()) return invoke(forward<Fn>(fn), take_unchecked());
             else return ref;
         }
 
         template<class Fn, class Result = invoke_result_t<Fn>>
             requires (!is_void_v<Result> && is_convertible_v<Result, TRef>)
         TRef or_else(Fn&& fn) {
-            if(is_valid()) return take();
+            if(is_valid()) return take_unchecked();
             else return invoke(forward<Fn>(fn));
         }
 
@@ -424,35 +486,35 @@ namespace mstd {
         template<class Fn, class Gn, class Result = invoke_result_t<Fn, TRef>>
             requires (!is_void_v<Result> && is_constructible_v<invoke_result_t<Gn>, Result>)
         Result then_or_else(Fn&& fn, Gn&& gn) {
-            if(is_valid()) return invoke(forward<Fn>(fn), take());
+            if(is_valid()) return invoke(forward<Fn>(fn), take_unchecked());
             else return invoke(forward<Gn>(gn));
         }
 
         template<class Fn, class Gn, class Result = invoke_result_t<Fn, TRef>>
             requires (is_void_v<Result> && is_void_v<invoke_result_t<Gn>>)
         void then_or_else(Fn&& fn, Gn&& gn) {
-            if(is_valid()) invoke(forward<Fn>(fn), take());
+            if(is_valid()) invoke(forward<Fn>(fn), take_unchecked());
             else invoke(forward<Gn>(gn));
         }
 
         template<class Fn, class Result = invoke_result_t<Fn, const T&>>
             requires (!is_void_v<Result>)
         maybe<Result> inspect(Fn&& fn) const {
-            if(is_valid()) return maybe<Result>(invoke(forward<Fn>(fn), borrow_const()));
+            if(is_valid()) return maybe<Result>(invoke(forward<Fn>(fn), borrow_const_unchecked()));
             else return nothing;
         }
 
         template<class Fn, class Result = invoke_result_t<Fn, const T&>>
             requires (is_void_v<Result>)
         void inspect(Fn&& fn) const {
-            if(is_valid()) invoke(forward<Fn>(fn), borrow_const());
+            if(is_valid()) invoke(forward<Fn>(fn), borrow_const_unchecked());
         }
 
         template<class Fn>
             requires (is_invocable_v<Fn, T&>)
         maybe apply(Fn&& fn) {
             if(is_valid())
-                invoke(forward<Fn>(fn), borrow());
+                invoke(forward<Fn>(fn), borrow_unchecked());
             return *this;
         }
     };
@@ -468,9 +530,10 @@ namespace mstd {
         return something;
     }
 
-    template<class TRef, class URef> 
-        requires (is_reference_v<TRef> && is_convertible_v<TRef, URef&&>)
-    maybe<TRef> some(URef&& ref){
+    template<class TRef, class U> 
+        requires (is_reference_v<TRef> 
+            && is_convertible_v<U&, TRef>)
+    maybe<TRef> some(U& ref){
         return maybe<TRef>(ref);
     }
 }

@@ -1,5 +1,6 @@
 #include "kernel/uart.hpp"
 #include "mstd/fmt.hpp"
+#include "mstd/string.hpp"
 #include <type_traits>
 
 namespace MK {
@@ -27,5 +28,7 @@ namespace MK {
     public:
         KernelConsole() = default;
         UARTBuffer& buffer() { return uart_buf; }
+        auto putc(char c) { return uart_buf.putc(c); }
+        auto puts(const char* str) { return uart_buf.write(str, strlen(str)); }
     };
 }

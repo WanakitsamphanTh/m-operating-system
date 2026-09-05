@@ -1,10 +1,15 @@
 #pragma once
 #include <tuple>
 #include <functional>
+#include "mstd/monadic/maybe.hpp"
 #include <utility>
 #include <type_traits>
 
 namespace mstd {
+
+    template<class T>
+    class maybe;
+
     using std::forward_as_tuple;
     using std::move;
     using std::is_convertible_v;
@@ -46,6 +51,16 @@ namespace mstd {
 
         bool is_ready() const {
             return initialized;
+        }
+
+        maybe<T&> get_if_ready() {
+            if(is_ready()) return some<T&>(storage.value);
+            else return nothing;
+        }
+
+        maybe<const T&> get_const_if_ready() {
+            if(is_ready()) return some<const T&>(storage.value);
+            else return nothing;
         }
 
         T& get() const {
@@ -136,6 +151,16 @@ namespace mstd {
 
         bool is_ready() const {
             return initialized;
+        }
+
+        maybe<T&> get_if_ready() {
+            if(is_ready()) return some<T&>(storage.value);
+            else return nothing;
+        }
+
+        maybe<const T&> get_const_if_ready() {
+            if(is_ready()) return some<const T&>(storage.value);
+            else return nothing;
         }
 
         T& get() const {
