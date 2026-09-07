@@ -38,11 +38,11 @@ SECTIONS
     KERNEL_DATA_END = .;
     KERNEL_DATA_SIZE = . - KERNEL_DATA_START;
 
-    KERNEL_END = .;
-    KERNEL_SIZE = . - KERNEL_START; 
-
     . = ALIGN(16);
     STACK_BOTTOM = .;
     . += 0x100000; 
     STACK_TOP = .;
+
+    KERNEL_END = .;
+    KERNEL_SIZE = . - KERNEL_START; 
 }

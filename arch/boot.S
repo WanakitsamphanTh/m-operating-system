@@ -13,12 +13,6 @@
     .global _kernel_data_end_addr
     .global _kernel_data_size
 
-    .extern _el0_page_table
-    .extern _el1_page_table
-    .extern _el2_page_table
-    .extern _el3_page_table
-    
-
     _kernel_start_addr: .quad KERNEL_START
     _kernel_end_addr: .quad KERNEL_END
     _kernel_size: .quad KERNEL_SIZE
@@ -41,6 +35,11 @@
     .align 3
     .global dtb_boot
     dtb_boot: .quad 0
+
+    .extern _l0_page_table
+    .extern _l1_page_table
+    .extern _l2_page_table
+    .extern _l3_page_table
 
 .section .text.boot
 .global _start

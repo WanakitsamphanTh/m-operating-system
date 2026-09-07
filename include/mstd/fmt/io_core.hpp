@@ -81,6 +81,9 @@ namespace mstd {
             }
         }
     public:
+        inline void writec(char c){
+            get_buffer().putc(c);
+        }
 
         template<class... Args>
         inline void writef(const char* fmt, const Args&... args) {

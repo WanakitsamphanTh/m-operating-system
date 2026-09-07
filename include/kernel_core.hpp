@@ -1,7 +1,11 @@
+#include "kernel/mem/page.hpp"
 #include "kernel/uart.hpp"
 #include <cstdint>
 
 extern "C" {
+    constexpr uint64_t UartBase = 0x09000000;
+    constexpr uint64_t GICDBase = 0x08000000;
+
     extern const uint64_t _kernel_start_addr;
     extern const uint64_t _kernel_end_addr;
     extern const uint64_t _kernel_size;
@@ -15,10 +19,13 @@ extern "C" {
     extern const uint64_t _kernel_data_end_addr;
     extern const uint64_t _kernel_data_size;
     
-    extern uint8_t* _el0_page_table;
-    extern uint8_t* _el1_page_table;
-    extern uint8_t* _el2_page_table;
-    extern uint8_t* _el3_page_table;
+    extern MK::PageDescriptor* _l0_page_table;
+    extern MK::PageDescriptor* _l1_page_table;
+    extern MK::PageDescriptor* _l2_kernel_page_table;
+    extern MK::PageDescriptor* _l2_kernel_device_table;
+    extern MK::PageDescriptor* _l3_kernel_page_table;
+    extern MK::PageDescriptor* _l3_device_uart_table;
+    extern MK::PageDescriptor* _l3_device_gicd_table;
 
     extern uint64_t dtb_boot;
 

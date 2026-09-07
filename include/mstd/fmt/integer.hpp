@@ -1,5 +1,6 @@
 #pragma once
 #include "buffer.hpp"
+#include "fmt_core.hpp"
 #include "mstd/fmt/fmt_core.hpp"
 #include "mstd/fmt/string.hpp"
 #include "mstd/fmt/buffer.hpp"
@@ -156,6 +157,9 @@ namespace mstd {
         }
     }
 
+    template<typename T>
+        requires same_as<T, uintptr_t>
+    void* as_ptr(T ptr){ return reinterpret_cast<void*>(ptr); }
     template<typename T>
     void* as_ptr(T* ptr){ return reinterpret_cast<void*>(ptr); }
     template<typename T>

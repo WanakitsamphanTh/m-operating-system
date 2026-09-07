@@ -64,15 +64,14 @@ memcpy: /* char* memcpy(char* dst, const char* src, size_t) */
     ret
 
 .global memset
-memset: /* size_t memset(char*, char, size_t) */
+memset: /* void* memset(char*, char, size_t) */
     mov x10, x0
 1:
     cbz x3, 1f
-    strb w2, [x0], #1
+    strb w2, [x10], #1
     sub x3, x3, #1
-    b 1b
-1:
-    sub x0, x0, x10
+    b 2b
+2:
     ret
 
 .global strchr

@@ -1,5 +1,4 @@
 .include "./arch/uart.inc"
-.include "./arch/varg.inc"
 
 .text
 .global uart_putc

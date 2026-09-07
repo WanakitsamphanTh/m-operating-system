@@ -1,3 +1,4 @@
+#pragma once
 #include "kernel/uart.hpp"
 #include "mstd/fmt.hpp"
 #include "mstd/string.hpp"

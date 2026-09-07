@@ -42,7 +42,7 @@ namespace MK {
     using mstd::memcmp;
     using mstd::strchr;
 
-    const char* FDTProperty::get_name(FDT& fdt) const { 
+    const char* FDTProperty::get_name(const FDT& fdt) const { 
         return reinterpret_cast<const char*>(fdt.base_ptr) 
                 + fdt.string_off 
                 + name_off; 
@@ -189,7 +189,7 @@ namespace MK {
         }
     }
 
-    mstd::maybe<const FDTProperty&> FDTNode::find_property(const char* name, FDT& fdt) const {
+    mstd::maybe<const FDTProperty&> FDTNode::find_property(const char* name, const FDT& fdt) const {
         const uint8_t* strptr = fdt.base_ptr + fdt.string_off;
         MK::FDTNodeType tag = static_cast<MK::FDTNodeType>(static_cast<uint32_t>(this->tag));
 
