@@ -44,8 +44,9 @@ init_gic:
     stp x29, x30, [sp, #-16]!
 
     /* disable distributor */
-    ldr x0, =gicd_base
-    ldr x0, [x0]
+    //ldr x0, =gicd_base
+    //ldr x0, [x0]
+    ldr x0, =GICD_BASE
     mov w1, wzr
     str w1, [x0, #GICD_CTLR]
 
@@ -118,7 +119,7 @@ init_timer:
     ldr x9, =(GICR_SGI_BASE + 0x0080)
     str w1, [x0, x9]
 
-    ldr x0, =GICR_ISENABLER0
+    ldr x9, =GICR_ISENABLER0
     ldr w1, [x0, x9]
     orr w1, w1, #(1 << 27)   /* enable IRQ virtual timer */
     str w1, [x0, x9]

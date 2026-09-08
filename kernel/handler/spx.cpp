@@ -13,7 +13,6 @@ extern "C" Ctx* sync_spx(Ctx* ctx){
             printk("Unknown synchronous exception\n");
             kernel_panic();
     }
-    common_irq_handler(ctx);
     return ctx;
 }
 
@@ -24,13 +23,13 @@ extern "C" Ctx* irq_spx(Ctx* ctx){
 }
 
 extern "C" Ctx* fiq_spx(Ctx* ctx){
-    printk("from %s\n", __PRETTY_FUNCTION__);
+    //printk("from %s\n", __PRETTY_FUNCTION__);
     common_irq_handler(ctx);
     return ctx;
 }
 
 extern "C" Ctx* serr_spx(Ctx* ctx){
-    printk("from %s\n", __PRETTY_FUNCTION__);
+    //printk("from %s\n", __PRETTY_FUNCTION__);
     common_irq_handler(ctx);
     return ctx;
 }

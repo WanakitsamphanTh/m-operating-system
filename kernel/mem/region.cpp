@@ -15,7 +15,6 @@ namespace MK {
     uintptr_t PhySpan::end() const { return base + size; }
     
     bool PhySpan::overlap(const PhySpan& other) const { 
-        if(base == other.base) return false;
         if(base < other.base) return end() <= other.base;
         if(base > other.base) return other.end() <= base;
         return false;
@@ -45,7 +44,7 @@ namespace MK {
     void MemRegion::free_page(Page pg){
         if(this->bitmap == nullptr) return;
         if(!this->include(pg)) return;
-        uintptr_t page_ind = pg / 4096;
+        uintptr_t page_ind = (pg - this->span.base) / 4096;
         auto byte_ind = page_ind / 8;
         auto bit_ind = page_ind % 8;
         this->bitmap[byte_ind] &= ~(1 << bit_ind);
@@ -61,7 +60,7 @@ namespace MK {
     void MemRegion::reserve_pages(const PhySpan& span){
         if(!span.is_part_of(this->span)) return;
         for(auto page = (span.base / 4096) * 4096; page < align<4096>(span.end()); page += 4096){
-            uintptr_t page_ind = page / 4096;
+            uintptr_t page_ind = (page - this->span.base) / 4096;
             auto byte_ind = page_ind / 8;
             auto bit_ind = page_ind % 8;
             this->bitmap[byte_ind] |= (1 << bit_ind);

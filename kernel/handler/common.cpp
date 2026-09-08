@@ -1,6 +1,7 @@
 #include "kernel_core.hpp"
 #include "kernel/el_handler.hpp"
 #include "kernel/irq.hpp"
+#include "kernel/io.hpp"
 #include "mstd/scope_guard.hpp"
 #include <cstdint>
 
@@ -13,13 +14,14 @@ Ctx* common_irq_handler(Ctx* ctx){
 
     auto irq = MK::IRQ::begin();
 
-    switch(irq.getCode()){
+    MK::KernelConsole console;
+    auto code = irq.getCode();
+    switch(code){
         case IRQCode::VTimerInterrupt:
-            printk("\ninterrupt!\n");
             reset_timer();
             break;
         default:
-            printk("Unknown IRQ\n");
+            console.writef("Unknown IRQ {}\n", static_cast<uint64_t>(code));
             break;
     }
 

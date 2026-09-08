@@ -107,23 +107,27 @@ extern "C" int kmain(uint8_t* dtb){
         regions[i].span.base = 
             uint64_t(mem_reg.u32_at(off).take()) << 32
             | uint64_t(mem_reg.u32_at(off + 4).take());
-        regions[i].span.size = 
-            uint64_t(mem_reg.u32_at(12 + off).take()) << 32
-            | uint64_t(mem_reg.u32_at(8 + off).take());
+        regions[i].span.size =
+            uint64_t(mem_reg.u32_at(8 + off).take()) << 32
+            | uint64_t(mem_reg.u32_at(12 + off).take());
         console.writef("regions[{}] base 0x{016h} size 0x{016h}\n", i, regions[i].span.base, regions[i].span.size);
     }    
+
+    console.writeln("starting to init page map");
 
     page_allocator.init(
         regions,
         MK::PhySpan{_kernel_start_addr, _kernel_size},
         MK::PhySpan{reinterpret_cast<uintptr_t>(fdt.base_ptr), fdt_size}
     );
+    
+    console.writeln("starting to init page map");
 
     //page_manager.map(_kernel_start_addr, _kernel_rodata_end_addr - _kernel_start_addr, MK::MapMode::Id, MK::PageInfo::MemType::Normal, MK::PageInfo::AP::PRO);
     //page_manager.map(_kernel_data_start_addr, _kernel_data_end_addr - _kernel_data_start_addr, MK::MapMode::Id, MK::PageInfo::MemType::Normal, MK::PageInfo::AP::PRW);
     //page_manager.map(dtb, fdt_size, MK::MapMode::Id, MK::PageInfo::MemType::Normal, MK::PageInfo::AP::PRO);
-    //page_manager.map(UartBase, 0x10000ull, MK::MapMode::Id, MK::PageInfo::MemType::Device, MK::PageInfo::AP::PRW);
-    //page_manager.map(GICDBase, 0x1000ull, MK::MapMode::Id, MK::PageInfo::MemType::Device, MK::PageInfo::AP::PRW);
+    //page_manager.map(::uart_base, ::uart_size, MK::MapMode::Id, MK::PageInfo::MemType::Device, MK::PageInfo::AP::PRW);
+    //page_manager.map(::gicd_base, ::gicd_size, MK::MapMode::Id, MK::PageInfo::MemType::Device, MK::PageInfo::AP::PRW);
 
     //MK::set_page_table(l0_page_table);
 

@@ -48,10 +48,11 @@ namespace MK {
             if(!bitmap_span.is_part_of(this->span)) continue;
             if(!(bitmap_span.overlap(reserved_span) || ...)){
                 init_bitmap(bitmap_span);
+                (this->reserve_pages(reserved_span), ...);
                 return;
             }
+            bitmap_addr += 4096;
         }
-        (this->reserve_pages(reserved_span), ...);
         this->bitmap = nullptr;
     }
 }
