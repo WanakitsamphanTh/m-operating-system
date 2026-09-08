@@ -27,7 +27,20 @@ extern "C" {
     extern MK::PageDescriptor* _l3_device_uart_table;
     extern MK::PageDescriptor* _l3_device_gicd_table;
 
+    extern uintptr_t uart_base;
+    extern uint64_t uart_size;
+    extern uintptr_t gicd_base;
+    extern uint64_t gicd_size;
+
     extern uint64_t dtb_boot;
+
+    void init_gicd();
+    void init_timer();
+    void init_exception_vector();
+    void enable_fp_neon();
+    void unmask_interrupt();
+
+    void mask_interrupt();
 
     [[noreturn]] void kernel_halt();
     [[noreturn]] void kernel_panic();

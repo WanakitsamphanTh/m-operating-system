@@ -38,6 +38,7 @@ namespace MK {
         mstd::maybe<const FDTNode&> find_node_prefix(const char*) const;
         mstd::maybe<const FDTNode&> find_node(const char*, bool) const;
         mstd::maybe<const FDTProperty&> find_property(const char*, const FDT&) const;
+        mstd::maybe<const FDTNode&> find_compatible(const char*, const FDT&) const;
         const uint8_t* skip() const;
         
         template<class concrete_writer, mstd::fmt_buffer fmt_buf>
@@ -76,6 +77,8 @@ namespace MK {
         mstd::maybe<const FDTNode&> find_node(const char*) const;
         mstd::maybe<const FDTNode&> find_node_prefix(const char*) const;
         mstd::maybe<const FDTNode&> find_node(const char*, bool) const;
+        mstd::maybe<const FDTNode&> find_property(const char*) const;
+        mstd::maybe<const FDTNode&> find_compatible(const char*) const;
 
         template<class concrete_writer, mstd::fmt_buffer fmt_buf>
         void print(mstd::writer_core<concrete_writer, fmt_buf>& writer) const;
@@ -91,10 +94,14 @@ namespace MK {
     const uint8_t* FDTProperty::print(mstd::writer_core<concrete_writer, fmt_buf>& writer, const FDT& fdt, size_t depth) const {
         for(auto i = 0; i < depth; i++)
             writer.writec('\t');
-        writer.writef("{} :", reinterpret_cast<const char*>(fdt.base_ptr + fdt.string_off + this->name_off));
-        for(auto i = 0; i < this->len; i++){
-            writer.writef(" {02h}", uint64_t(this->data[i]));
-        }
+        auto name = reinterpret_cast<const char*>(fdt.base_ptr + fdt.string_off + this->name_off);
+        writer.writef("{} :", name);
+        if(strcmp("device_type", name) == 0 || strcmp("compatible", name) == 0)
+            writer.writef("{}", reinterpret_cast<const char*>(this->data));
+        else
+            for(auto i = 0; i < this->len; i++){
+                writer.writef(" {02h}", uint64_t(this->data[i]));
+            }
         writer.writec('\n');
         return align<4>(reinterpret_cast<const uint8_t*>(this) + sizeof(FDTProperty) + this->len);
     }

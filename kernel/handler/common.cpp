@@ -15,11 +15,11 @@ Ctx* common_irq_handler(Ctx* ctx){
 
     switch(irq.getCode()){
         case IRQCode::VTimerInterrupt:
-            //printk("\ninterrupt!\n");
+            printk("\ninterrupt!\n");
             reset_timer();
             break;
         default:
-            //printk("Unknown IRQ\n");
+            printk("Unknown IRQ\n");
             break;
     }
 

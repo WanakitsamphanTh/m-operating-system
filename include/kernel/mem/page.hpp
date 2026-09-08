@@ -22,13 +22,16 @@ namespace MK {
 
         static PageDescriptor make_table(PageDescriptor* addr);
         static PageDescriptor make_table(uintptr_t addr);
-        static PageDescriptor make_block(uintptr_t addr, uint64_t mem_type, uint64_t ap);
+        static PageDescriptor make_page(uintptr_t addr, uint64_t mem_type, uint64_t ap);
 
         uintptr_t get_addr() const;
         bool is_valid() const;
         bool is_fault() const;
         bool is_table() const;
         bool is_block() const;
+    };
+
+    class PageInfo {
     public:
         static constexpr uint64_t VALID = 0x01;
         static constexpr uint64_t TABLE = 0x10;
@@ -60,6 +63,21 @@ namespace MK {
     };
 
     static_assert(sizeof(PageDescriptor) == 8, "sizeof(PageDescriptor) must be 64-bit");
+
+    using PageTable = PageDescriptor*;
+
+    enum class MapMode {
+        None, Id
+    };
+
+    class PageAlloc;
+
+    class PageTablesManager {
+        PageAlloc* allocator;
+    public:
+        void init(PageAlloc& alloc);
+        void map(uintptr_t, MapMode, uint64_t mem_type, uint64_t ap);
+    };
 
     extern "C" void enable_mmu(PageDescriptor*);
     extern "C" void set_page_table(PageDescriptor*);

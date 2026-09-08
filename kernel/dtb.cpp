@@ -136,15 +136,14 @@ namespace MK {
                     /* if the parent nodes match */
                     if(match) return node.find_node(next + 1, as_prefix);
                     else ptr = node.skip();
-
                     break;
                 }
                 case FDTNodeType::Nop:
                     ptr += 4;
                     break;
                 case FDTNodeType::Prop: {
-                    auto& node = *reinterpret_cast<const MK::FDTProperty*>(ptr);
-                    ptr += sizeof(MK::FDTProperty) + node.len;
+                    auto& prop = *reinterpret_cast<const MK::FDTProperty*>(ptr);
+                    ptr += sizeof(MK::FDTProperty) + prop.len;
                     ptr = align<4>(ptr);
                     break;
                 }
@@ -168,7 +167,7 @@ namespace MK {
             switch(tag){
                 case FDTNodeType::BeginNode: {
                     const auto& node = *reinterpret_cast<const MK::FDTNode*>(ptr);
-                    node.skip();
+                    ptr = node.skip();
                     break;
                 }
                 case FDTNodeType::Nop:
@@ -187,6 +186,45 @@ namespace MK {
                 }
             }
         }
+    }
+
+    mstd::maybe<const FDTNode&> FDTNode::find_compatible(const char* str, const FDT& fdt) const {
+        const uint8_t* strptr = fdt.base_ptr + fdt.string_off;
+        MK::FDTNodeType tag = static_cast<MK::FDTNodeType>(static_cast<uint32_t>(this->tag));
+        if(tag != FDTNodeType::BeginNode) return mstd::nothing;
+        auto ptr = align<4>(reinterpret_cast<const uint8_t*>(this) + sizeof(FDTNode) + strlen(this->name) + 1);
+        while(true){
+            tag =  static_cast<MK::FDTNodeType>(
+                static_cast<uint32_t>(
+                    *reinterpret_cast<const be_uint32_t*>(ptr)
+                )
+            );
+            switch(tag){
+                case FDTNodeType::BeginNode: {
+                    const auto& node = *reinterpret_cast<const FDTNode*>(ptr);
+                    if(auto some = node.find_compatible(str, fdt); some.is_valid())
+                        return some;
+                    ptr = node.skip();
+                    break;
+                }
+                case FDTNodeType::End:
+                case FDTNodeType::EndNode:
+                    return mstd::nothing;
+                case FDTNodeType::Nop:
+                    ptr += 4;
+                    break;
+                case FDTNodeType::Prop: {
+                    const auto& prop = *reinterpret_cast<const FDTProperty*>(ptr);
+                    auto prop_name = reinterpret_cast<const char*>(strptr) + prop.name_off;
+                    if(strcmp("compatible", prop_name) == 0
+                        && strcmp(str, prop.data) == 0)
+                        return mstd::some<const FDTNode&>(*this);
+                    ptr = align<4>(ptr + sizeof(FDTProperty) + prop.len);
+                break;
+                }
+            }
+        }
+        return mstd::nothing;
     }
 
     mstd::maybe<const FDTProperty&> FDTNode::find_property(const char* name, const FDT& fdt) const {
@@ -219,5 +257,10 @@ namespace MK {
                     return mstd::nothing;
             }
         }
+    }
+
+    mstd::maybe<const FDTNode&> FDT::find_compatible(const char* str) const {
+        const auto& root = *reinterpret_cast<const FDTNode*>(this->struct_off + this->base_ptr);
+        return root.find_compatible(str, *this);
     }
 }

@@ -8,16 +8,27 @@
 namespace MK {
     using mstd::maybe;
 
-    class Allocator {
-        constexpr static size_t page_size = 4096;
-        size_t page_count;
-        uint8_t* bitmap;
-        size_t bitmap_size;
-        uint8_t* ram_start;
+    class PageAlloc {
+        Regions* regions;
     public:
-        Allocator();
-        void init(uintptr_t kernel_start, uintptr_t kernel_size, Regions& regions);
+        PageAlloc();
+        template<typename... PhySpan>
+        void init(Regions& regions, PhySpan&&... span);
         maybe<Page> alloc_page();
+        template<typename T>
+        maybe<T*> alloc_page_as();
         void free_page(Page);
     };
+
+    template<typename... Span>
+    void PageAlloc::init(Regions& regions, Span&&... reserved_span){
+        this->regions = &regions;
+        for(auto i = 0; i < regions.num; i++){
+            regions[i].init(reserved_span...);
+        }
+    }
+    template<typename T>
+    maybe<T*> PageAlloc::alloc_page_as() {
+        return this->alloc_page().then([](Page&& page){ return reinterpret_cast<T*>(page); });
+    }
 }

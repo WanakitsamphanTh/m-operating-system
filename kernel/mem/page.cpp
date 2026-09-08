@@ -2,6 +2,7 @@
 #include <cstdint>
 
 namespace MK {
+
     PageDescriptor::PageDescriptor(uintptr_t descriptor): descriptor(descriptor){}
     PageDescriptor::PageDescriptor(const PageDescriptor& p): descriptor(p.descriptor){}
 
@@ -22,13 +23,13 @@ namespace MK {
     }
     PageDescriptor PageDescriptor::make_table(uintptr_t addr){
         return (addr & 0x7ffffffff000) 
-                | PageDescriptor::VALID 
-                | PageDescriptor::TABLE;
+                | PageInfo::VALID 
+                | PageInfo::TABLE;
     }
-    PageDescriptor PageDescriptor::make_block(uintptr_t addr, uint64_t mem_type, uint64_t ap){
+    PageDescriptor PageDescriptor::make_page(uintptr_t addr, uint64_t mem_type, uint64_t ap){
         return (addr & 0x7ffffffff000)
-                | PageDescriptor::VALID
-                | PageDescriptor::AF
+                | PageInfo::VALID
+                | PageInfo::AF
                 | (mem_type << 2)
                 | (ap << 6);
     }

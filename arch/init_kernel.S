@@ -1,7 +1,7 @@
-.equ GICD_BASE, 0x08000000
-.equ GICD_CTLR, GICD_BASE + 0x00000000
+.equ GICD_BASE, 0x08000000          /* as fallback */
+.equ GICD_CTLR, 0x00000000
 
-.equ GICR_BASE, 0x080A0000
+.equ GICR_BASE, 0x000A0000
 .equ GICR_WAKER, GICR_BASE + 0x0014
 .equ GICR_SGI_BASE, GICR_BASE + 0x10000
 .equ GICR_ISENABLER0, GICR_SGI_BASE + 0x0100
@@ -15,9 +15,15 @@
     enable_dist_msg: .asciz "enabled distributor\n"
     config_timer_msg: .asciz "configured timer\n"
 
+.section .data
+    .global gicd_base
+    .global gicd_size
+    gicd_base: .quad GICD_BASE
+    gicd_size: .quad 0x10000
+
 .section .text.boot
-.global init_kernel
-init_kernel:
+.global init_gicd
+init_gicd:
     stp x29, x30, [sp, #-16]!
     bl init_gic
     ldr x0, =init_gic_msg
@@ -38,9 +44,10 @@ init_gic:
     stp x29, x30, [sp, #-16]!
 
     /* disable distributor */
-    ldr x0, =GICD_CTLR
+    ldr x0, =gicd_base
+    ldr x0, [x0]
     mov w1, wzr
-    str w1, [x0]
+    str w1, [x0, #GICD_CTLR]
 
     dsb sy
     isb
@@ -54,9 +61,10 @@ init_gic:
     bl printk
 
     /* enable distributor */
-    ldr x0, =GICD_CTLR
+    ldr x0, =gicd_base
+    ldr x0, [x0]
     mov w1, #(1 << 5) | (1 << 1) | (1 << 0)  /* ARE_NS | EnableGrp1S | EnableGrp1NS */
-    str w1, [x0]
+    str w1, [x0, #GICD_CTLR]
     isb
 
     ldr x0, =enable_dist_msg
@@ -66,16 +74,18 @@ init_gic:
     ret
 
 init_gic_redistributor:
-    ldr x0, =GICR_WAKER
+    ldr x0, =gicd_base
+    ldr x0, [x0]
     ldr w1, [x0]
     /* Clear ProcessorSleep */
     bic w1, w1, #0b10
-    str w1, [x0]
+    ldr x9, =GICR_WAKER
+    str w1, [x0, x9]
     /* wait until children is a sleep */
 1:
-    ldr w1, [x0]
+    ldr w1, [x0, x9]
     tbz w1, #2, 1f  /* test ChildrenAsleep == 0 */
-  wfe
+    wfe
     b 1b
 1:
     ret
@@ -102,14 +112,16 @@ init_gic_cpu_interface:
 
 init_timer:
     /* set PPI 27 (virtual timer) to Group 1 (IRQ, non-secure) */
-    ldr x0, =GICR_SGI_BASE + 0x0080   /* GICR_IGROUPR0 */
+    ldr x0, =gicd_base   /* GICR_IGROUPR0 */
+    ldr x0, [x0]
     mov w1, #(1 << 27)
-    str w1, [x0]
+    ldr x9, =(GICR_SGI_BASE + 0x0080)
+    str w1, [x0, x9]
 
     ldr x0, =GICR_ISENABLER0
-    ldr w1, [x0]
+    ldr w1, [x0, x9]
     orr w1, w1, #(1 << 27)   /* enable IRQ virtual timer */
-    str w1, [x0]
+    str w1, [x0, x9]
     ret
 
 .global config_timer
@@ -147,10 +159,12 @@ reset_timer:
 .global disable_timer
 disable_timer:
     /* current deadline */
-    ldr x0, =GICR_ICENABLER0
-    ldr w1, [x0]
+    ldr x0, =gicd_base
+    ldr x0, [x0]
+    ldr x9, =GICR_ICENABLER0
+    ldr w1, [x0, x9]
     orr w1, w1, #(1 << 27)   /* disable IRQ virtual timer */
-    str w1, [x0]
+    str w1, [x0, x9]
 
     isb
     ret

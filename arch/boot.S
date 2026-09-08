@@ -36,11 +36,6 @@
     .global dtb_boot
     dtb_boot: .quad 0
 
-    .extern _l0_page_table
-    .extern _l1_page_table
-    .extern _l2_page_table
-    .extern _l3_page_table
-
 .section .text.boot
 .global _start
 _start:
@@ -66,7 +61,7 @@ _boot_start:
     mov sp, x0
 
     /* mask interrupts */
-    msr daifset, #0xf
+    bl mask_interrupt
 
     /* determine current EL */
     mrs x0, CurrentEL
@@ -109,6 +104,15 @@ el1_boot:
     ldr x0, =enter_el1_msg
     bl printk
 
+    ldr x1, =dtb_boot
+    ldr x0, [x1] 
+    bl kmain
+
+    b kernel_halt
+
+.global init_exception_vector
+init_exception_vector:
+    stp x29, x30, [sp, #-16]!
     /* set up exception vector table */
     ldr x0, =el1_vector_table
     msr vbar_el1, x0
@@ -117,12 +121,12 @@ el1_boot:
     ldr x0, =set_up_vec_table_msg
     bl printk
 
-    /* init kernel platform */
-    bl init_kernel
+    ldp x29, x30, [sp], #16
+    ret
 
-    ldr x0, =init_kernel_msg
-    bl printk
-
+.global enable_fp_neon
+enable_fp_neon:
+    stp x29, x30, [sp, #-16]!
     /* enable fp/neon */
     mrs x0, cpacr_el1
     orr x0, x0, #(3 << 20)
@@ -131,15 +135,21 @@ el1_boot:
     
     ldr x0, =enable_fp_msg
     bl printk
+
+    ldp x29, x30, [sp], #16
+    ret
     
+.global unmask_interrupt
+unmask_interrupt:
     /* enable interrupts */
     msr daifclr, #0b0010
+    ret
 
-    /* enter kernel */
-enter_kernel:
-    ldr x1, =dtb_boot
-    ldr x0, [x1]
-    bl kmain
+.global mask_interrupt
+mask_interrupt:
+    /* mask interrupts */
+    msr daifset, 0xf
+    ret
 
 .global kernel_halt
 kernel_halt:

@@ -13,6 +13,7 @@ MK::PageDescriptor* _l3_device_gicd_table;
 
 extern "C" [[noreturn]] void kernel_panic(){
     printk("kernel panic!");
-    disable_timer();
+    mask_interrupt();
+    //disable_timer();
     kernel_halt();   
 }

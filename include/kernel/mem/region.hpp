@@ -2,20 +2,56 @@
 #include <cstddef>
 #include <cstdint>
 #include <mstd/monadic/maybe.hpp>
+#include <kernel/mem/page.hpp>
 
 namespace MK {
     using mstd::maybe;
-    struct MemRegion {
+
+    struct PhySpan {
         uintptr_t base;
         size_t size;
+
+        uintptr_t end() const;
+        bool overlap(const PhySpan& other) const;
+        bool is_part_of(const PhySpan& parent) const;
+    };
+
+    struct MemRegion {
+        PhySpan span;
+        uint8_t* bitmap;
+        size_t bitmap_size;
+
+        template<typename... Span>
+        void init(Span&&... reserved_span);
+        maybe<Page> alloc_page();
+        void free_page(Page pg);
+        void reserve_pages(const PhySpan& span);
+        bool include(Page);
+    private:
+        void init_bitmap(const PhySpan& span);
     };
 
     struct Regions {
         MemRegion regions[8];
         size_t num;
         MemRegion& operator[](size_t);
-        maybe<uintptr_t> find_contiguous(size_t size, uintptr_t hint);
     };
 
     extern Regions regions;
+
+    template<typename... Span>
+    void MemRegion::init(Span&&... reserved_span){
+        uintptr_t bitmap_addr = this->span.base;
+        uintptr_t bitmap_size = this->span.size / (4096 * 8);
+        while (true){
+            PhySpan bitmap_span{bitmap_addr, bitmap_size}; 
+            if(!bitmap_span.is_part_of(this->span)) continue;
+            if(!(bitmap_span.overlap(reserved_span) || ...)){
+                init_bitmap(bitmap_span);
+                return;
+            }
+        }
+        (this->reserve_pages(reserved_span), ...);
+        this->bitmap = nullptr;
+    }
 }
