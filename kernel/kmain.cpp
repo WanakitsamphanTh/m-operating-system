@@ -36,12 +36,11 @@ MK::PageTablesManager page_manager;
     - initialize timer (OK)     |   void init_timer()
     - unmask interrupts
         > timer works       |   void unmask_interrupt(uint64_t mask)
-    - inspect RAM regions
-    - initialize physical page allocator
-    - initialize page table
-    - activate MMU
+    - inspect RAM regions OK
+    - initialize physical page allocator OK
+    - initialize page table OK
+    - activate MMU OK
     - initialize heap
-    - enter kernel main (?)
 
     remaining:
     - initialize file system
@@ -112,24 +111,39 @@ extern "C" int kmain(uint8_t* dtb){
             | uint64_t(mem_reg.u32_at(12 + off).take());
         console.writef("regions[{}] base 0x{016h} size 0x{016h}\n", i, regions[i].span.base, regions[i].span.size);
     }    
-
-    console.writeln("starting to init page map");
-
     page_allocator.init(
         regions,
         MK::PhySpan{_kernel_start_addr, _kernel_size},
         MK::PhySpan{reinterpret_cast<uintptr_t>(fdt.base_ptr), fdt_size}
     );
-    
-    console.writeln("starting to init page map");
 
-    //page_manager.map(_kernel_start_addr, _kernel_rodata_end_addr - _kernel_start_addr, MK::MapMode::Id, MK::PageInfo::MemType::Normal, MK::PageInfo::AP::PRO);
-    //page_manager.map(_kernel_data_start_addr, _kernel_data_end_addr - _kernel_data_start_addr, MK::MapMode::Id, MK::PageInfo::MemType::Normal, MK::PageInfo::AP::PRW);
-    //page_manager.map(dtb, fdt_size, MK::MapMode::Id, MK::PageInfo::MemType::Normal, MK::PageInfo::AP::PRO);
-    //page_manager.map(::uart_base, ::uart_size, MK::MapMode::Id, MK::PageInfo::MemType::Device, MK::PageInfo::AP::PRW);
-    //page_manager.map(::gicd_base, ::gicd_size, MK::MapMode::Id, MK::PageInfo::MemType::Device, MK::PageInfo::AP::PRW);
+    console.writeln("init page allocator");
 
-    //MK::set_page_table(l0_page_table);
+    page_manager.init(page_allocator);
+    console.writeln("init page manager");
+
+    page_manager.map(_kernel_start_addr, _kernel_rodata_end_addr - _kernel_start_addr, MK::MapMode::Id, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRO);
+    console.writeln("id map kernel");
+    page_manager.map(_kernel_data_start_addr, _kernel_end_addr - _kernel_data_start_addr, MK::MapMode::Id, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRW);
+    console.writeln("id map data/bss/stack");
+    page_manager.map(reinterpret_cast<uintptr_t>(dtb), fdt_size, MK::MapMode::Id, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRO);
+    console.writeln("id map FDT");
+    page_manager.map(::uart_base, ::uart_size, MK::MapMode::Id, MK::PageInfo::MemoryType::Device, MK::PageInfo::AP::PRW);
+    console.writeln("id map UART");
+    page_manager.map(::gicd_base, ::gicd_size, MK::MapMode::Id, MK::PageInfo::MemoryType::Device, MK::PageInfo::AP::PRW);
+    console.writeln("id map GICD");
+
+    for(auto i = 0; i < regions.num; i++){
+        uintptr_t virt_addr = MK::phy2virt_as<uintptr_t>(regions[i].span.base);
+        auto size = regions[i].span.size;
+        page_manager.map(virt_addr, size, MK::MapMode::Direct, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRW);
+    }
+    console.writeln("direct map physical address");
+
+    page_manager.enable_mmu();
+    console.writeln("enabled MMU");
+
+    console.writeln("this should work after MMU is enabled");
 
     return 0;
 }

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <mstd/monadic/maybe.hpp>
 #include <kernel/mem/page.hpp>
+#include "kernel/mem/mem.hpp"
 
 namespace MK {
     using mstd::maybe;
@@ -24,7 +25,9 @@ namespace MK {
         template<typename... Span>
         void init(Span&&... reserved_span);
         maybe<Page> alloc_page();
+        maybe<Page> alloc_page(uintptr_t);
         void free_page(Page pg);
+        bool reserve_page_at(uintptr_t);
         void reserve_pages(const PhySpan& span);
         bool include(Page);
     private:
@@ -42,16 +45,18 @@ namespace MK {
     template<typename... Span>
     void MemRegion::init(Span&&... reserved_span){
         uintptr_t bitmap_addr = this->span.base;
-        uintptr_t bitmap_size = this->span.size / (4096 * 8);
+        uintptr_t bitmap_size = this->span.size / (page_size * 8);
         while (true){
             PhySpan bitmap_span{bitmap_addr, bitmap_size}; 
-            if(!bitmap_span.is_part_of(this->span)) continue;
+            if(!bitmap_span.is_part_of(this->span)) {
+                break;
+            }
             if(!(bitmap_span.overlap(reserved_span) || ...)){
                 init_bitmap(bitmap_span);
                 (this->reserve_pages(reserved_span), ...);
                 return;
             }
-            bitmap_addr += 4096;
+            bitmap_addr += page_size;
         }
         this->bitmap = nullptr;
     }

@@ -22,6 +22,8 @@ SECTIONS
     .rodata ALIGN(16) : {
         *(.rodata*)
     }
+
+    . = ALIGN(4096);
     KERNEL_RODATA_END = .;
     KERNEL_RODATA_SIZE = . - KERNEL_RODATA_START;
 
@@ -43,6 +45,7 @@ SECTIONS
     . += 0x100000; 
     STACK_TOP = .;
 
+    . = ALIGN(4096);
     KERNEL_END = .;
     KERNEL_SIZE = . - KERNEL_START; 
 }

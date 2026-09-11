@@ -1,13 +1,6 @@
 #include "kernel/mem/region.hpp"
 #include "mstd/string.hpp"
 
-template<size_t al, class Ptr>
-inline Ptr align(Ptr _ptr) { 
-    auto ptr = reinterpret_cast<const uint8_t*>(_ptr);
-    return reinterpret_cast<Ptr>(size_t(ptr + (al - 1)) & ~(al - 1)); 
-}
-
-
 namespace MK {
     using mstd::maybe;
     using mstd::nothing;
@@ -15,9 +8,9 @@ namespace MK {
     uintptr_t PhySpan::end() const { return base + size; }
     
     bool PhySpan::overlap(const PhySpan& other) const { 
-        if(base < other.base) return end() <= other.base;
-        if(base > other.base) return other.end() <= base;
-        return false;
+        if(base < other.base) return end() > other.base;
+        if(base > other.base) return other.end() > base;
+        return true;
     }
 
     bool PhySpan::is_part_of(const PhySpan& parent) const {
@@ -32,19 +25,31 @@ namespace MK {
             auto& byte = this->bitmap[i];
             if(byte == 0xff) continue;
             for(auto j = 0; j < 8; j++){
-                if((byte >> j) & 0x01){
+                if(!((byte >> j) & 0x01)){
                     byte |= (1 << j);
-                    return mstd::some<Page>(reinterpret_cast<Page>(this->span.base + (i * 8 + j) * 4096));
+                    return mstd::some<Page>(reinterpret_cast<Page>(this->span.base + (i * 8 + j) * page_size));
                 }
             }
         }
         return nothing;
     }
+
+    maybe<Page> MemRegion::alloc_page(uintptr_t addr) {
+        if(this->bitmap == nullptr) return nothing;
+        if(!PhySpan{addr, page_size}.is_part_of(this->span)) return nothing;
+        uintptr_t page_ind = (addr - this->span.base) / page_size;
+        auto byte_ind = page_ind / 8;
+        auto bit_ind = page_ind % 8;
+        if((this->bitmap[byte_ind] >> bit_ind) & 0x01)
+            return nothing;
+        this->bitmap[byte_ind] |= 1 << bit_ind;
+        return mstd::some<Page>(static_cast<Page>(addr));
+    }
     
     void MemRegion::free_page(Page pg){
         if(this->bitmap == nullptr) return;
         if(!this->include(pg)) return;
-        uintptr_t page_ind = (pg - this->span.base) / 4096;
+        uintptr_t page_ind = (pg - this->span.base) / page_size;
         auto byte_ind = page_ind / 8;
         auto bit_ind = page_ind % 8;
         this->bitmap[byte_ind] &= ~(1 << bit_ind);
@@ -57,10 +62,22 @@ namespace MK {
         reserve_pages(span);
     }
 
+    bool MemRegion::reserve_page_at(uintptr_t addr){
+        if(this->bitmap == nullptr) return false;
+        if(!PhySpan{addr, page_size}.is_part_of(this->span)) return false;
+        uintptr_t page_ind = (addr - this->span.base) / page_size;
+        auto byte_ind = page_ind / 8;
+        auto bit_ind = page_ind % 8;
+        if((this->bitmap[byte_ind] >> bit_ind) & 0x01)
+            return false;
+        this->bitmap[byte_ind] |= 1 << bit_ind;
+        return true;
+    }
+
     void MemRegion::reserve_pages(const PhySpan& span){
         if(!span.is_part_of(this->span)) return;
-        for(auto page = (span.base / 4096) * 4096; page < align<4096>(span.end()); page += 4096){
-            uintptr_t page_ind = (page - this->span.base) / 4096;
+        for(auto page = (span.base / page_size) * page_size; page < align<page_size>(span.end()); page += page_size){
+            uintptr_t page_ind = (page - this->span.base) / page_size;
             auto byte_ind = page_ind / 8;
             auto bit_ind = page_ind % 8;
             this->bitmap[byte_ind] |= (1 << bit_ind);

@@ -1,10 +1,10 @@
 #pragma once
 #include <cstdint>
-#include <type_traits>
+#include <cstddef>
+#include "kernel/mem/mem.hpp"
+
 
 namespace MK {
-
-    using Page = uintptr_t;
 
     struct MemPage{
         uintptr_t start;
@@ -14,6 +14,7 @@ namespace MK {
     class PageDescriptor {
         uint64_t descriptor;
     public:
+        PageDescriptor(): descriptor(0){}
         PageDescriptor(uintptr_t addr);
         PageDescriptor(const PageDescriptor&);
         PageDescriptor& operator=(uint64_t);
@@ -23,6 +24,7 @@ namespace MK {
         static PageDescriptor make_table(PageDescriptor* addr);
         static PageDescriptor make_table(uintptr_t addr);
         static PageDescriptor make_page(uintptr_t addr, uint64_t mem_type, uint64_t ap);
+        static PageDescriptor make_block(uintptr_t addr, uint64_t mem_type, uint64_t ap);
 
         uintptr_t get_addr() const;
         bool is_valid() const;
@@ -33,9 +35,10 @@ namespace MK {
 
     class PageInfo {
     public:
-        static constexpr uint64_t VALID = 0x01;
-        static constexpr uint64_t TABLE = 0x10;
-        static constexpr uint64_t BLOCK = 0x00;
+        static constexpr uint64_t VALID = 0b01;
+        static constexpr uint64_t TABLE = 0b10;
+        static constexpr uint64_t PAGE = 0b10;
+        static constexpr uint64_t BLOCK = 0b00;
         static constexpr uint64_t AF = 1ull << 10;
         static constexpr uint64_t AP_MASK = 0b11ull << 6;
         static constexpr uint64_t SH_MASK = 0b11ull << 8;
@@ -67,19 +70,58 @@ namespace MK {
     using PageTable = PageDescriptor*;
 
     enum class MapMode {
-        None, Id
+        Id, Direct, New
     };
 
     class PageAlloc;
 
     class PageTablesManager {
+        bool mmu_enabled;
         PageAlloc* allocator;
+        alignas(page_size) PageDescriptor l0_table[512];
     public:
+        PageTablesManager();
         void init(PageAlloc& alloc);
-        void map(uintptr_t, MapMode, uint64_t mem_type, uint64_t ap);
+        void map(uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
+        void enable_mmu();
+    private:
+        void map_l0(uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
+        void map_l1(PageDescriptor*, uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
+        void map_l2(PageDescriptor*, uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
+        void map_l3(PageDescriptor*, uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
     };
 
-    extern "C" void enable_mmu(PageDescriptor*);
-    extern "C" void set_page_table(PageDescriptor*);
+    static constexpr uintptr_t max_virtual_addr = 0xffffffffffffffff;
+    static constexpr uintptr_t phy_base = 1ull << 39;
 
+    // MAIR_EL1: one attribute byte per PageInfo::MemoryType index.
+    struct MAIR {
+        static constexpr uint64_t DeviceNGNRNE = 0x00; // Device-nGnRnE, for MMIO
+        static constexpr uint64_t NormalWBWA = 0xff;   // Normal, Inner/Outer Write-Back Write-Allocate
+
+        static constexpr uint64_t value =
+            (NormalWBWA << (PageInfo::MemoryType::Normal * 8)) |
+            (DeviceNGNRNE << (PageInfo::MemoryType::Device * 8));
+    };
+
+    struct TCR {
+        static constexpr uint64_t T0SZ = 64 - 48;            // bits[5:0]:  48-bit input address via TTBR0
+        static constexpr uint64_t IRGN0_WBWA = 0b01ull << 8;  // bits[9:8]:  inner WB write-allocate
+        static constexpr uint64_t ORGN0_WBWA = 0b01ull << 10; // bits[11:10]: outer WB write-allocate
+        static constexpr uint64_t SH0_INNER = 0b11ull << 12;  // bits[13:12]: inner shareable
+        static constexpr uint64_t TG0_4KB = 0b00ull << 14;    // bits[15:14]: 4KB granule
+        static constexpr uint64_t EPD1 = 1ull << 23;          // TTBR1_EL1 is never programmed, disable its walks
+
+        static constexpr uint64_t value =
+            T0SZ | IRGN0_WBWA | ORGN0_WBWA | SH0_INNER | TG0_4KB | EPD1;
+    };
+
+    void* phy2virt(uintptr_t);
+    template<class T>
+    T phy2virt_as(uintptr_t ptr){ return reinterpret_cast<T>(phy2virt(ptr)); }
+
+    template<class T>
+    uintptr_t virt2phy(T* ptr){ return reinterpret_cast<uintptr_t>(ptr) & ~phy_base; }
+
+    extern "C" void enable_mmu(uint64_t mair, uint64_t tcr, PageDescriptor* l0_table);
 }

@@ -19,12 +19,12 @@
     _kernel_text_start_addr: .quad KERNEL_START
     _kernel_text_end_addr: .quad KERNEL_END
     _kernel_text_size: .quad KERNEL_TEXT_SIZE
-    _rodata_start_addr: .quad KERNEL_RODATA_START
-    _rodata_end_addr: .quad KERNEL_RODATA_END
-    _rodata_size: .quad KERNEL_RODATA_SIZE
-    _data_start_addr: .quad KERNEL_DATA_START
-    _data_end_addr: .quad KERNEL_DATA_END
-    _data_size: .quad KERNEL_DATA_SIZE
+    _kernel_rodata_start_addr: .quad KERNEL_RODATA_START
+    _kernel_rodata_end_addr: .quad KERNEL_RODATA_END
+    _kernel_rodata_size: .quad KERNEL_RODATA_SIZE
+    _kernel_data_start_addr: .quad KERNEL_DATA_START
+    _kernel_data_end_addr: .quad KERNEL_DATA_END
+    _kernel_data_size: .quad KERNEL_DATA_SIZE
 
     enter_el1_msg: .asciz "entered EL1\n"
     set_up_vec_table_msg: .asciz "initialized exception vector table\n"

@@ -4,6 +4,7 @@
 #include "kernel/mem/page.hpp"
 #include "kernel/mem/region.hpp"
 #include "mstd/monadic/maybe.hpp"
+#include "kernel/mem/mem.hpp"
 
 namespace MK {
     using mstd::maybe;
@@ -15,6 +16,8 @@ namespace MK {
         template<typename... PhySpan>
         void init(Regions& regions, PhySpan&&... span);
         maybe<Page> alloc_page();
+        maybe<Page> alloc_page(uintptr_t);
+        void reserve_page_at(uintptr_t);
         template<typename T>
         maybe<T*> alloc_page_as();
         void free_page(Page);
