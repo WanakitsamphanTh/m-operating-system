@@ -70,6 +70,10 @@ namespace MK {
         //map(reinterpret_cast<uintptr_t>(this), sizeof(PageTablesManager), MapMode::Id, PageInfo::MemoryType::Normal, PageInfo::AP::PRW);
     }
 
+    void PageTablesManager::relink(PageAlloc& alloc){
+        allocator = &alloc;
+    }
+
     void PageTablesManager::map(uintptr_t base, size_t size, MapMode mode, uint64_t mem_type, uint64_t ap){
         auto end = align<page_size>(base + size);
         base = align_down<page_size>(base);
@@ -109,6 +113,7 @@ namespace MK {
         }
     }
 
+    __attribute__((optimize("no-jump-tables")))
     void PageTablesManager::map_l1(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
         uintptr_t end = base + size;
         while(base < end){
@@ -117,7 +122,18 @@ namespace MK {
             size_t chunk_size = chunk_end - base;
             if(md != MapMode::New && chunk_size == l1_block_size 
                 && is_align<l1_block_size>(base) && !tb[ind].is_valid()){
-                    uintptr_t addr = md == MapMode::Direct ? virt2phy(reinterpret_cast<void*>(base)) : base;
+                    uintptr_t addr;
+                    switch(md){
+                        using enum MapMode;
+                        case Direct:
+                            addr = virt2phy(reinterpret_cast<void*>(base));
+                            break;
+                        case DirectKernel:
+                            addr = kvirt2phy(reinterpret_cast<void*>(base));
+                            break;
+                        default:
+                            addr = base;
+                    }
                     tb[ind] = PageDescriptor::make_block(addr, mem_type, ap);
             } else {
                 PageDescriptor* l2_tb;
@@ -142,6 +158,7 @@ namespace MK {
         }
     }
 
+    __attribute__((optimize("no-jump-tables")))
     void PageTablesManager::map_l2(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
         uintptr_t end = base + size;
         while(base < end){
@@ -150,7 +167,18 @@ namespace MK {
             size_t chunk_size = chunk_end - base;
             if(md != MapMode::New && chunk_size == l2_block_size 
                 && is_align<l2_block_size>(base) && !tb[ind].is_valid()){
-                    uintptr_t addr = md == MapMode::Direct ? virt2phy(reinterpret_cast<void*>(base)) : base;
+                    uintptr_t addr;
+                    switch(md){
+                        using enum MapMode;
+                        case Direct:
+                            addr = virt2phy(reinterpret_cast<void*>(base));
+                            break;
+                        case DirectKernel:
+                            addr = kvirt2phy(reinterpret_cast<void*>(base));
+                            break;
+                        default:
+                            addr = base;
+                    }
                     tb[ind] = PageDescriptor::make_block(addr, mem_type, ap);
             } else {
                 PageDescriptor* l3_tb;
@@ -175,6 +203,7 @@ namespace MK {
         }
     }
 
+    __attribute__((optimize("no-jump-tables")))
     void PageTablesManager::map_l3(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
         uintptr_t end = base + size;
         while(base < end){
@@ -183,9 +212,20 @@ namespace MK {
             if(tb[ind].is_valid())
                 mstd::panic("the entry is already mapped!");
             uintptr_t addr;
-            if(md == MapMode::Id) addr = base;
-            else if(md == MapMode::Direct) addr = virt2phy(reinterpret_cast<void*>(base));
-            else addr = this->allocator->alloc_page().take();
+            switch(md){
+                using enum MapMode;
+                case Id:
+                    addr = base;
+                    break;
+                case Direct:
+                    addr = virt2phy(reinterpret_cast<void*>(base));
+                    break;
+                case DirectKernel:
+                    addr = kvirt2phy(reinterpret_cast<void*>(base));
+                    break;
+                default:
+                    addr = this->allocator->alloc_page().take();
+            }
             tb[ind] = PageDescriptor::make_page(addr, mem_type, ap);
             base = chunk_end;
         }
@@ -196,7 +236,13 @@ namespace MK {
         MK::enable_mmu(MK::MAIR::value, MK::TCR::value, this->l0_table);
     }
 
-    void* phy2virt(uintptr_t ptr) {
-        return reinterpret_cast<void*>(MK::phy_base + ptr);
+    void PageTablesManager::map(void* addr, size_t size, uint64_t mem_type, uint64_t ap){
+        
+    }
+    void PageTablesManager::remap(void* addr, size_t old_size, size_t size, uint64_t mem_type, uint64_t ap){
+
+    }
+    void PageTablesManager::unmap(uintptr_t addr, size_t size){
+
     }
 }

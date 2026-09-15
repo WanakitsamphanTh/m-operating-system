@@ -3,6 +3,11 @@
 #include <cstdint>
 
 namespace MK {
+
+    constexpr uint64_t userspace_vaddr = 0ull;
+    constexpr uint64_t kernel_vaddr = 0xffffull << 48;
+    constexpr uint64_t vaddr_max = 0xffffffffffff;
+
     constexpr size_t page_size = 4096;  // 4 KiB
     constexpr size_t l2_block_size = 512 * page_size; // 2MB
     constexpr size_t l1_block_size = 512 * l2_block_size; // 1 GiB
@@ -28,4 +33,5 @@ namespace MK {
     using Page = uintptr_t;
     using Block = uintptr_t;
 
+    using Stack = char[page_size];
 }

@@ -106,9 +106,8 @@ el1_boot:
 
     ldr x1, =dtb_boot
     ldr x0, [x1] 
-    bl kmain
-
-    b kernel_halt
+    b kernel_bootstrap
+    b .
 
 .global init_exception_vector
 init_exception_vector:

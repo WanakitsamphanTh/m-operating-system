@@ -2,6 +2,23 @@
 #include "kernel/uart.hpp"
 #include <cstdint>
 
+namespace MK {
+    class KernelConsole;
+    class Regions;
+    class PageAlloc;
+    class PageTablesManager;
+    class PhySpan;
+    struct FDT;
+
+    struct KernelSystem{
+        KernelConsole& console;
+        Regions& regions;
+        PageAlloc& page_allocator;
+        PageTablesManager& page_manager;
+        FDT& fdt
+    };
+}
+
 extern "C" {
     constexpr uint64_t UartBase = 0x09000000;
     constexpr uint64_t GICDBase = 0x08000000;
@@ -42,10 +59,15 @@ extern "C" {
 
     void mask_interrupt();
 
+    [[noreturn]] void kernel_main(
+        MK::KernelSystem* hi_kernel_ptr,
+        MK::PhySpan* hi_unmap_spans, 
+        uintptr_t hi_sp
+    );
     [[noreturn]] void kernel_halt();
     [[noreturn]] void kernel_panic();
 
     __attribute__((section(".text.boot"))) void disable_timer();
 
-    extern "C" void kprintf(const char* fmt, ...);
+    void kprintf(const char* fmt, ...);
 }

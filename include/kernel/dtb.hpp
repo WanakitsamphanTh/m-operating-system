@@ -80,6 +80,8 @@ namespace MK {
         mstd::maybe<const FDTNode&> find_property(const char*) const;
         mstd::maybe<const FDTNode&> find_compatible(const char*) const;
 
+        void relink(uint8_t* ptr);
+
         template<class concrete_writer, mstd::fmt_buffer fmt_buf>
         void print(mstd::writer_core<concrete_writer, fmt_buf>& writer) const;
     };

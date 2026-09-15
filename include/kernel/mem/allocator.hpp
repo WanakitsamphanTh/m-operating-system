@@ -15,6 +15,7 @@ namespace MK {
         PageAlloc();
         template<typename... PhySpan>
         void init(Regions& regions, PhySpan&&... span);
+        void relink(Regions& regions);
         maybe<Page> alloc_page();
         maybe<Page> alloc_page(uintptr_t);
         void reserve_page_at(uintptr_t);
@@ -33,5 +34,9 @@ namespace MK {
     template<typename T>
     maybe<T*> PageAlloc::alloc_page_as() {
         return this->alloc_page().then([](Page&& page){ return reinterpret_cast<T*>(page); });
+    }
+
+    void PageAlloc::relink(Regions& regions){
+        this->regions = &regions;
     }
 }

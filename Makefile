@@ -43,9 +43,11 @@ BOOT_SRC = boot
 
 ASM_SRCS = $(wildcard $(SRC)/arch/*.S)
 C_SRCS = $(wildcard $(SRC)/kernel/*.cpp) \
-		$(wildcard $(SRC)/mstd/*.cpp) \
+		$(wildcard $(SRC)/kernel/mstd/*.cpp) \
 		$(wildcard $(SRC)/kernel/handler/*.cpp) \
-		$(wildcard $(SRC)/kernel/mem/*.cpp)
+		$(wildcard $(SRC)/kernel/mem/*.cpp) \
+		$(wildcard $(SRC)/mstd/common/*.cpp) \
+		$(wildcard $(SRC)/mstd/kernel/*.cpp)
 
 ASM_OBJS := $(patsubst $(SRC)/%.S,$(BUILD)/%.o,$(ASM_SRCS))
 C_OBJS   := $(patsubst $(SRC)/%.cpp,$(BUILD)/%.o,$(C_SRCS))

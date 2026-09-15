@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstddef>
 #include "kernel/mem/mem.hpp"
+#include "mem.hpp"
 
 
 namespace MK {
@@ -70,7 +71,7 @@ namespace MK {
     using PageTable = PageDescriptor*;
 
     enum class MapMode {
-        Id, Direct, New
+        Id, Direct, DirectKernel, New
     };
 
     class PageAlloc;
@@ -82,7 +83,11 @@ namespace MK {
     public:
         PageTablesManager();
         void init(PageAlloc& alloc);
+        void relink(PageAlloc& alloc);
         void map(uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
+        void map(void*, size_t, uint64_t mem_type, uint64_t ap);
+        void remap(void*, size_t, size_t, uint64_t mem_type, uint64_t ap);
+        void unmap(uintptr_t, size_t);
         void enable_mmu();
     private:
         void map_l0(uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
@@ -92,7 +97,8 @@ namespace MK {
     };
 
     static constexpr uintptr_t max_virtual_addr = 0xffffffffffffffff;
-    static constexpr uintptr_t phy_base = 1ull << 39;
+    static constexpr uintptr_t phy_base = 1ull << 47 | kernel_vaddr;
+    static constexpr uintptr_t kernel_base = kernel_vaddr;
 
     // MAIR_EL1: one attribute byte per PageInfo::MemoryType index.
     struct MAIR {
@@ -116,12 +122,21 @@ namespace MK {
             T0SZ | IRGN0_WBWA | ORGN0_WBWA | SH0_INNER | TG0_4KB | EPD1;
     };
 
-    void* phy2virt(uintptr_t);
+    inline void* phy2virt(uintptr_t ptr) { return reinterpret_cast<void*>(MK::phy_base + ptr); }
+
     template<class T>
     T phy2virt_as(uintptr_t ptr){ return reinterpret_cast<T>(phy2virt(ptr)); }
 
     template<class T>
-    uintptr_t virt2phy(T* ptr){ return reinterpret_cast<uintptr_t>(ptr) & ~phy_base; }
+    uintptr_t virt2phy(T ptr){ return reinterpret_cast<uintptr_t>(ptr) & ~phy_base; }
+
+    inline void* phy2kvirt(uintptr_t ptr){ return reinterpret_cast<void*>(kernel_base + ptr); }
+
+    template<class T>
+    T phy2kvirt_as(uintptr_t ptr){ return reinterpret_cast<T>(phy2kvirt(ptr)); }
+
+    template<class T>
+    uintptr_t kvirt2phy(T ptr){ return reinterpret_cast<uintptr_t>(ptr) & ~kernel_base; }
 
     extern "C" void enable_mmu(uint64_t mair, uint64_t tcr, PageDescriptor* l0_table);
 }

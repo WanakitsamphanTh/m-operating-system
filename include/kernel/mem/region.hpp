@@ -30,6 +30,8 @@ namespace MK {
         bool reserve_page_at(uintptr_t);
         void reserve_pages(const PhySpan& span);
         bool include(Page);
+        template<class Fn>
+        void relink(Fn&& fn);
     private:
         void init_bitmap(const PhySpan& span);
     };
@@ -59,5 +61,10 @@ namespace MK {
             bitmap_addr += page_size;
         }
         this->bitmap = nullptr;
+    }
+
+    template<class Fn>
+    void MemRegion::relink(Fn&& fn){
+        this->bitmap = std::invoke(std::forward<Fn>(fn), this->bitmap);
     }
 }

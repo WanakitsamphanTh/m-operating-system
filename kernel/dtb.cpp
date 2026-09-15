@@ -59,6 +59,10 @@ namespace MK {
         return mstd::some<uint32_t>(read_be_64(reinterpret_cast<const uint8_t*>(data + off))); 
     } 
 
+    void FDT::relink(uint8_t* ptr){
+        this->base = ptr;
+    }
+
     mstd::maybe<FDT> FDT::try_read_fdt(uint8_t* fdt){
         if(!fdt || read_be_32(fdt) != FDT::magic_number) 
             return mstd::nothing;

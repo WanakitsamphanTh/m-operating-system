@@ -7,6 +7,8 @@
 
 namespace mstd {
     using std::same_as;
+    using std::remove_cvref_t;
+    using std::is_same_v;
 
     template<class T>
     concept fmt_buffer = requires (T& t, char c, const char* str, size_t len){
@@ -14,11 +16,60 @@ namespace mstd {
         { t.write(str, len) } -> same_as<size_t>;
     };
 
-    class dyn_fmt_buffer {
+    class dyn_fmt_buffer{
+        using any = void*;
+        template<class T>
+        concept concrete_buffer 
+            = requires fmt_buffer<T> && !is_same_v<remove_cvref_t<T>, dyn_fmt_buffer>;
+
+        struct vtable {
+            bool (*putc)(any writer, char c);
+            fmt_result (*write)(any writer, const char*, size_t);
+        };
+
+        const vtable* vptr;
+        any writer;
+
+        template<concrete_buffer Buffer>
+        constexpr const vtable* get_vtable(){
+            static const vtable vt = {
+                .putc = &putc<Buffer>,
+                .write = &write<Buffer>
+            };
+            return &vt;
+        }
+
+        template<concrete_buffer Buffer>
+        bool putc(any writer, char c){
+            return reinterpret_cast<Buffer*>(writer)->putc(c);
+        }
+        template<concrete_buffer Buffer>
+        fmt_result write(any writer, const char* str, size_t len){
+            return reinterpret_cast<Buffer*>(writer)->write(str, len);
+        }
+
     public:
-        virtual bool putc(char) = 0;
-        virtual size_t write(const char*, size_t) = 0;
-    };
+        dyn_fmt_buffer();
+        dyn_fmt_buffer(const dyn_fmt_buffer& writer);
+        template<concrete_buffer Buffer>
+        __attribute__((always_inline)) dyn_fmt_buffer& operator=(Buffer& writer){
+            this->vptr = get_vtable<Buffer>();
+            this->writer = &writer;
+        }
+
+        template<concrete_buffer Buffer>
+        dyn_fmt_buffer(Buffer& writer)
+            : vptr(get_vtable<Buffer>()), 
+            writer(&writer){}
+        __attribute__((always_inline))
+        dyn_fmt_buffer& operator=(const dyn_fmt_buffer& writer);
+
+
+        bool putc(char c);
+        fmt_result write(const char* str, size_t len);
+        bool unchecked_putc(char c);
+        fmt_result unchecked_write(const char* str, size_t len);
+    }
 
     struct fmt_result {
         size_t written;
@@ -69,5 +120,60 @@ namespace mstd {
         static constexpr fmt_spec spec = default_fmt<TConcrete>::spec;
     };
 
-    void parse_fmt(const char* spec, fmt_spec& fmt);
+    inline void parse_fmt(const char* spec, fmt_spec& fmt){
+        /*
+        sign: '+' | none
+        zeropad: '0' | none
+        width: [1..9] digit+ | none
+        precision : '.' digit+ | none
+        base: b | o | h | none
+        alignment: 'L' | 'R' | non
+        */
+        size_t i = 0;
+        if(spec[i] == '+') {
+            fmt.show_sign = true;
+            i++;
+        }
+        if(spec[i] == '0') {
+            fmt.zero_pad = true;
+            i++;
+        }
+        size_t w = 0;
+        while(spec[i] >= '0' && spec[i] <= '9') {
+            w = w * 10 + (spec[i] - '0');
+            i++;
+        }
+        if(w != 0) fmt.width = w;
+        if(spec[i] == '.'){
+            i++;
+            size_t p = 0;
+            while(spec[i] >= '0' && spec[i] <= '9') {
+                p = p * 10 + (spec[i] - '0');
+                i++;
+            }
+            fmt.precision = p;
+        }
+        switch(spec[i]){
+            case 'b':
+                fmt.base = fmt_spec::number_base::bin; 
+                i++;
+                break;
+            case 'o': 
+                fmt.base = fmt_spec::number_base::oct; 
+                i++;
+                break;
+            case 'h': 
+                fmt.base = fmt_spec::number_base::hex; 
+                i++;
+                break;
+        }
+
+        if(spec[i] == 'L'){
+            fmt.align = fmt_spec::alignment::left;
+            i++;
+        } else if(spec[i] == 'R'){
+            fmt.align = fmt_spec::alignment::right;
+            i++;
+        }
+    }
 }

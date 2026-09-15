@@ -26,15 +26,18 @@
 init_gicd:
     stp x29, x30, [sp, #-16]!
     bl init_gic
-    ldr x0, =init_gic_msg
+    adrp x0, init_gic_msg
+    add x0, x0, :lo12:init_gic_msg
     bl printk
 
     bl init_timer
-    ldr x0, =init_timer_msg
+    adrp x0, init_timer_msg
+    add x0, x0, :lo12:init_timer_msg
     bl printk
 
     bl config_timer
-    ldr x0, =config_timer_msg
+    adrp x0, config_timer_msg
+    add x0, x0, :lo12:config_timer_msg
     bl printk
 
     ldp x29, x30, [sp], #16
@@ -44,9 +47,9 @@ init_gic:
     stp x29, x30, [sp, #-16]!
 
     /* disable distributor */
-    //ldr x0, =gicd_base
-    //ldr x0, [x0]
-    ldr x0, =GICD_BASE
+    adrp x0, gicd_base
+    add x0, x0, :lo12:gicd_base
+    ldr x0, [x0]
     mov w1, wzr
     str w1, [x0, #GICD_CTLR]
 
@@ -54,28 +57,33 @@ init_gic:
     isb
 
     bl init_gic_redistributor
-    ldr x0, =init_gicr_msg
+    adrp x0, init_gicr_msg
+    add x0, x0, :lo12:init_gicr_msg
     bl printk
 
     bl init_gic_cpu_interface
-    ldr x0, =init_ppi_msg
+    adrp x0, init_ppi_msg
+    add x0, x0, :lo12:init_ppi_msg
     bl printk
 
     /* enable distributor */
-    ldr x0, =gicd_base
+    adrp x0, gicd_base
+    add x0, x0, :lo12:gicd_base
     ldr x0, [x0]
     mov w1, #(1 << 5) | (1 << 1) | (1 << 0)  /* ARE_NS | EnableGrp1S | EnableGrp1NS */
     str w1, [x0, #GICD_CTLR]
     isb
 
-    ldr x0, =enable_dist_msg
+    adrp x0, enable_dist_msg
+    add x0, x0, :lo12:enable_dist_msg
     bl printk
 
     ldp x29, x30, [sp], #16
     ret
 
 init_gic_redistributor:
-    ldr x0, =gicd_base
+    adrp x0, gicd_base
+    add x0, x0, :lo12:gicd_base
     ldr x0, [x0]
     ldr w1, [x0]
     /* Clear ProcessorSleep */
@@ -113,7 +121,9 @@ init_gic_cpu_interface:
 
 init_timer:
     /* set PPI 27 (virtual timer) to Group 1 (IRQ, non-secure) */
-    ldr x0, =gicd_base   /* GICR_IGROUPR0 */
+   /* GICR_IGROUPR0 */
+    adrp x0, gicd_base
+    add x0, x0, :lo12:gicd_base
     ldr x0, [x0]
     mov w1, #(1 << 27)
     ldr x9, =(GICR_SGI_BASE + 0x0080)
@@ -160,7 +170,8 @@ reset_timer:
 .global disable_timer
 disable_timer:
     /* current deadline */
-    ldr x0, =gicd_base
+    adrp x0, gicd_base
+    add x0, x0, :lo12:gicd_base
     ldr x0, [x0]
     ldr x9, =GICR_ICENABLER0
     ldr w1, [x0, x9]

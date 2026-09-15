@@ -13,7 +13,8 @@
 .global uart_putc
 uart_putc:
 1:
-    ldr x1, =uart_base
+    adrp x1, uart_base
+    add x1, x1, :lo12:uart_base
     ldr x1, [x1]
     ldr w2, [x1, #UART_FR]
     and w2, w2, #TXFF
@@ -23,18 +24,21 @@ uart_putc:
 
 .global uart_puts
 uart_puts:
-    stp x19, x30, [sp, #-16]!
-    stp x20, x21, [sp, #-16]!
-    mov x19, x0
-    mov x20, x0
+    mov x9, x0     // x9 := str (iter)
+    mov x10, x0     // x10 := str (base)
+    adrp x1, uart_base
+    addd x1, x1, :lo12:uart_base
+    ldr x1, [x1]
 1:
-    ldrb w0, [x19]
-    cbz w0, 2f
-    bl uart_putc
-    add x19, x19, 1
-    b 1b
+    ldrb w0, [x9]
+    cbz w0, 1f
 2:
-    sub x0, x19, x20
-    ldp x20, x21, [sp], #16
-    ldp x19, x30, [sp], #16
+    ldr w2, [x1, #UART_FR]
+    and w2, w2, #TXFF
+    cbnz w2, 2b
+    str w0, [x1, #UART_DR]
+    add x9, x9, 1
+    b 1b
+1:
+    sub x0, x9, x10
     ret
