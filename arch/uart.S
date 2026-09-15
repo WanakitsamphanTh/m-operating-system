@@ -27,7 +27,7 @@ uart_puts:
     mov x9, x0     // x9 := str (iter)
     mov x10, x0     // x10 := str (base)
     adrp x1, uart_base
-    addd x1, x1, :lo12:uart_base
+    add x1, x1, :lo12:uart_base
     ldr x1, [x1]
 1:
     ldrb w0, [x9]

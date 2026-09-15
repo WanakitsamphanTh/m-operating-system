@@ -16,43 +16,55 @@ namespace mstd {
         { t.write(str, len) } -> same_as<size_t>;
     };
 
+    struct fmt_result {
+        size_t written;
+        size_t remainder;
+        fmt_result(): written(0), remainder(0){}
+        fmt_result(size_t written, size_t remainder)
+        : written(written), remainder(remainder){}
+    };
+
+    class dyn_fmt_buffer;
+
+    template<class T>
+    concept concrete_buffer 
+        = fmt_buffer<T> && !is_same_v<remove_cvref_t<T>, dyn_fmt_buffer>;
+    
     class dyn_fmt_buffer{
         using any = void*;
-        template<class T>
-        concept concrete_buffer 
-            = requires fmt_buffer<T> && !is_same_v<remove_cvref_t<T>, dyn_fmt_buffer>;
 
         struct vtable {
-            bool (*putc)(any writer, char c);
-            fmt_result (*write)(any writer, const char*, size_t);
+            bool (*putc)(any, char);
+            fmt_result (*write)(any, const char*, size_t);
         };
 
         const vtable* vptr;
-        any writer;
+        mutable any writer;
 
         template<concrete_buffer Buffer>
-        constexpr const vtable* get_vtable(){
-            static const vtable vt = {
-                .putc = &putc<Buffer>,
-                .write = &write<Buffer>
-            };
-            return &vt;
-        }
-
-        template<concrete_buffer Buffer>
-        bool putc(any writer, char c){
+        static bool impl_putc(any writer, char c){
             return reinterpret_cast<Buffer*>(writer)->putc(c);
         }
         template<concrete_buffer Buffer>
-        fmt_result write(any writer, const char* str, size_t len){
+        static fmt_result impl_write(any writer, const char* str, size_t len){
             return reinterpret_cast<Buffer*>(writer)->write(str, len);
+        }
+
+        template<concrete_buffer Buffer>
+        const vtable* get_vtable(){
+            static const vtable vt {
+                .putc = &dyn_fmt_buffer::impl_putc<Buffer>,
+                .write = &dyn_fmt_buffer::impl_write<Buffer>
+            };
+            return &vt;
         }
 
     public:
         dyn_fmt_buffer();
         dyn_fmt_buffer(const dyn_fmt_buffer& writer);
+        
         template<concrete_buffer Buffer>
-        __attribute__((always_inline)) dyn_fmt_buffer& operator=(Buffer& writer){
+        dyn_fmt_buffer& operator=(Buffer& writer){
             this->vptr = get_vtable<Buffer>();
             this->writer = &writer;
         }
@@ -61,7 +73,7 @@ namespace mstd {
         dyn_fmt_buffer(Buffer& writer)
             : vptr(get_vtable<Buffer>()), 
             writer(&writer){}
-        __attribute__((always_inline))
+
         dyn_fmt_buffer& operator=(const dyn_fmt_buffer& writer);
 
 
@@ -69,12 +81,6 @@ namespace mstd {
         fmt_result write(const char* str, size_t len);
         bool unchecked_putc(char c);
         fmt_result unchecked_write(const char* str, size_t len);
-    }
-
-    struct fmt_result {
-        size_t written;
-        size_t remainder;
-        fmt_result(): written(0), remainder(0){}
     };
 
     struct fmt_spec {

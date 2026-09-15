@@ -35,8 +35,4 @@ namespace MK {
     maybe<T*> PageAlloc::alloc_page_as() {
         return this->alloc_page().then([](Page&& page){ return reinterpret_cast<T*>(page); });
     }
-
-    void PageAlloc::relink(Regions& regions){
-        this->regions = &regions;
-    }
 }

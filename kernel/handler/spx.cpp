@@ -13,6 +13,7 @@ extern "C" Ctx* sync_spx(Ctx* ctx){
             printk("Unknown synchronous exception\n");
             kernel_panic();
     }
+    ctx->regs[30] += 4;
     return ctx;
 }
 

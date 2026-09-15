@@ -60,7 +60,7 @@ namespace MK {
     } 
 
     void FDT::relink(uint8_t* ptr){
-        this->base = ptr;
+        this->base_ptr = ptr;
     }
 
     mstd::maybe<FDT> FDT::try_read_fdt(uint8_t* fdt){

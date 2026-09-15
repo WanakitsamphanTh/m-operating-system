@@ -18,8 +18,14 @@
 .section .data
     .global gicd_base
     .global gicd_size
+    .global gicr_base
+    .global gicr_size
+
+
     gicd_base: .quad GICD_BASE
     gicd_size: .quad 0x10000
+    gicr_base: .quad GICR_BASE
+    gicr_size: .quad 0x100000
 
 .section .text.boot
 .global init_gicd

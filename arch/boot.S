@@ -113,11 +113,13 @@ el1_boot:
 init_exception_vector:
     stp x29, x30, [sp, #-16]!
     /* set up exception vector table */
-    ldr x0, =el1_vector_table
+    adrp x0, el1_vector_table
+    add x0, x0, :lo12:el1_vector_table
     msr vbar_el1, x0
     isb
 
-    ldr x0, =set_up_vec_table_msg
+    adrp x0, set_up_vec_table_msg
+    add x0, x0, :lo12:set_up_vec_table_msg
     bl printk
 
     ldp x29, x30, [sp], #16
@@ -132,7 +134,8 @@ enable_fp_neon:
     msr cpacr_el1, x0
     isb
     
-    ldr x0, =enable_fp_msg
+    adrp x0, enable_fp_msg
+    add x0, x0, :lo12:enable_fp_msg
     bl printk
 
     ldp x29, x30, [sp], #16

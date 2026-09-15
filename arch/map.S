@@ -12,6 +12,7 @@ enable_mmu:
     msr tcr_el1, x1
 
     msr ttbr0_el1, x2
+    msr ttbr1_el1, x2
     dsb sy
     isb
 

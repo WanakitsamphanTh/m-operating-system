@@ -45,4 +45,8 @@ namespace MK {
             if(auto region = (*regions)[i]; region.include(page))
                 region.free_page(page);
     }
+
+    void PageAlloc::relink(Regions& reg){
+        this->regions = &reg;
+    }
 }

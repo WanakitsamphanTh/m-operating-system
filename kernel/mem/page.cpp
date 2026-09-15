@@ -209,8 +209,7 @@ namespace MK {
         while(base < end){
             auto ind = (base >> 12) & 0x1ff;
             uintptr_t chunk_end =align<page_size>(base + 1);
-            if(tb[ind].is_valid())
-                mstd::panic("the entry is already mapped!");
+            //if(tb[ind].is_valid()) mstd::panic("the entry is already mapped!");
             uintptr_t addr;
             switch(md){
                 using enum MapMode;

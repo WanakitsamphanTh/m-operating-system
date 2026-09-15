@@ -15,7 +15,7 @@ namespace MK {
         Regions& regions;
         PageAlloc& page_allocator;
         PageTablesManager& page_manager;
-        FDT& fdt
+        FDT& fdt;
     };
 }
 
@@ -48,6 +48,8 @@ extern "C" {
     extern uint64_t uart_size;
     extern uintptr_t gicd_base;
     extern uint64_t gicd_size;
+    extern uintptr_t gicr_base;
+    extern uint64_t gicr_size;
 
     extern uint64_t dtb_boot;
 
@@ -62,8 +64,9 @@ extern "C" {
     [[noreturn]] void kernel_main(
         MK::KernelSystem* hi_kernel_ptr,
         MK::PhySpan* hi_unmap_spans, 
-        uintptr_t hi_sp
+        size_t unmap_count
     );
+    
     [[noreturn]] void kernel_halt();
     [[noreturn]] void kernel_panic();
 

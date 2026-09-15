@@ -112,14 +112,26 @@ namespace MK {
 
     struct TCR {
         static constexpr uint64_t T0SZ = 64 - 48;            // bits[5:0]:  48-bit input address via TTBR0
+        static constexpr uint64_t T1SZ = (64 - 48) << 16;   // bits[21:16]:  48-bit input address via TTBR1
+        
         static constexpr uint64_t IRGN0_WBWA = 0b01ull << 8;  // bits[9:8]:  inner WB write-allocate
+        static constexpr uint64_t IRGN1_WBWA = 0b01ull << 24;  // bits[25:24]:  inner WB write-allocate
+        
         static constexpr uint64_t ORGN0_WBWA = 0b01ull << 10; // bits[11:10]: outer WB write-allocate
+        static constexpr uint64_t ORGN1_WBWA = 0b01ull << 26; // bits[27:26]: outer WB write-allocate
+        
         static constexpr uint64_t SH0_INNER = 0b11ull << 12;  // bits[13:12]: inner shareable
+        static constexpr uint64_t SH1_INNER = 0b11ull << 28;  // bits[29:28]: inner shareable
+        
         static constexpr uint64_t TG0_4KB = 0b00ull << 14;    // bits[15:14]: 4KB granule
-        static constexpr uint64_t EPD1 = 1ull << 23;          // TTBR1_EL1 is never programmed, disable its walks
+        static constexpr uint64_t TG1_4KB = 0b10ull << 30;    // bits[31:30]: 4KB granule
+        
+        static constexpr uint64_t EPD0 = 1ull << 7;         // disable TTBR1_EL0 walks
+        static constexpr uint64_t EPD1 = 1ull << 23;          // disable TTBR1_EL1 walks
 
         static constexpr uint64_t value =
-            T0SZ | IRGN0_WBWA | ORGN0_WBWA | SH0_INNER | TG0_4KB | EPD1;
+            T0SZ | IRGN0_WBWA | ORGN0_WBWA | SH0_INNER | TG0_4KB
+            | T1SZ | IRGN1_WBWA | ORGN1_WBWA | SH1_INNER | TG1_4KB;
     };
 
     inline void* phy2virt(uintptr_t ptr) { return reinterpret_cast<void*>(MK::phy_base + ptr); }

@@ -1,19 +1,30 @@
 #include <cstdint>
 #include <cstring>
 #include <kernel_core.hpp>
+#include <kernel/io.hpp>
+#include "kernel/mem/region.hpp"
+#include "kernel/mem/page.hpp"
+#include "kernel/mem/allocator.hpp"
+#include "mstd/monadic/maybe.hpp"
+#include "mstd/scope_guard.hpp"
+#include "mstd/string.hpp"
+#include "mstd/mem/alloc.hpp"
 
-extern "C" [[noreturn]] void kernel_main(MK::KernelSystem* hi_kernel_ptr,MK::PhySpan* hi_unmap_spans, uintptr_t hi_sp){
-    __asm__ __volatile__(
-        "mov %%sp, %0"
-        :
-        : "r"(hi_sp)
-        : "sp"
-    );
+
+extern "C" [[noreturn]] 
+void kernel_main(MK::KernelSystem* hi_kernel_ptr, MK::PhySpan* hi_unmap_spans, size_t unmap_count){
     auto& console = hi_kernel_ptr->console;
     auto& regions = hi_kernel_ptr->regions;
-    auto& page_allocator = hi_kernel_ptr->page_alloc;
+    auto& page_allocator = hi_kernel_ptr->page_allocator;
     auto& page_manager = hi_kernel_ptr->page_manager;
+    
+    uintptr_t sp;
+    __asm__ __volatile__(
+        "mov %0, sp\n"
+        : "=r"(sp)
+    );
 
+    console.writeln("kernel now works at the higher half space");
 
-    kernel_hault();    
+    kernel_halt();    
 }
