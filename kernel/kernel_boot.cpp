@@ -164,32 +164,25 @@ extern "C" [[noreturn]] int kernel_bootstrap(uint8_t* dtb){
     auto unmap_count = sizeof(unmap_spans) / sizeof(MK::PhySpan);
     MK::PhySpan* hi_unmap_spans = MK::phy2kvirt_as<MK::PhySpan*>(reinterpret_cast<uintptr_t>(unmap_spans));
 
-    uintptr_t hi_sp;
-
-    /* update stack address to high */
+    uintptr_t cur_sp;
     __asm__ __volatile__(
         "mov %0, sp\n"
-        : "=r"(hi_sp)
+        : "=r"(cur_sp)
     );
-    hi_sp = MK::phy2kvirt_as<uintptr_t>(hi_sp);
-    __asm__ __volatile__(
-        "mov sp, %0\n"
-        :
-        : "r"(hi_sp)
-    );
+    uintptr_t hi_sp = MK::phy2kvirt_as<uintptr_t>(cur_sp);
 
-    console.writef("changed stack address to higher address 0x{016h}\n", hi_sp);
-    
-    /* jump to higher kernel */
-   __asm__ __volatile__ (
-        "mov x0, %0\n"
-        "mov x1, %1\n"
-        "mov x2, %2\n"
-        "adrp x3, %3\n"
-        "add  x3, x3, :lo12:%3\n"
-        "br   x3\n"
+    console.writef("switched stack address to higher half 0x{016h}\n", hi_sp);
+    uintptr_t hi_kernel_main = MK::phy2kvirt_as<uintptr_t>(reinterpret_cast<uintptr_t>(&kernel_main));
+
+    __asm__ __volatile__ (
+        "mov sp, %0\n"
+        "mov x0, %1\n"
+        "mov x1, %2\n"
+        "mov x2, %3\n"
+        "mov x3, %4\n"
+        "br x3\n"
         :
-        : "r"(hi_kernel_sys), "r"(hi_unmap_spans), "r"(unmap_count), "S"(kernel_main)
+        : "r"(hi_sp), "r"(hi_kernel_sys), "r"(hi_unmap_spans), "r"(unmap_count), "r"(hi_kernel_main)
         : "x0", "x1", "x2", "x3", "memory"
     );
 }

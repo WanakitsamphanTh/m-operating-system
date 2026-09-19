@@ -2,7 +2,7 @@ ENTRY(_start)
 
 SECTIONS
 {
-    . = 0x40080000;
+    . = 0xffff000040080000;
     KERNEL_START = .;
     KERNEL_TEXT_START = .;
     .boot : {

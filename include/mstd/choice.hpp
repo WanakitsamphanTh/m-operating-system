@@ -2,55 +2,64 @@
 
 #include <cstdint>
 #include <type_traits>
+#include <utility>
+#include "mstd/monadic/maybe.hpp"
+
 namespace mstd {
     template<uint32_t index, class... Ts>
     union polymorph_storage;
 
-    template<uint32_t index, class T, class... Ts>
+    template<uint32_t index, class... Ts>
     class indexed_type_list;
 
-    template<class Ty, class T0, class T1, class... Ts>
+    template<class Ty, class... Ts>
     struct is_in;
 
     template<class Ty, class T0, class T1, class... Ts>
-    struct is_in {
-        inline static constexpr bool val = std::is_same_v<Ty, T0> || is_in<Ty, T1, Ts...>::value;
+    struct is_in <Ty, T0, T1, Ts...> {
+        inline static constexpr bool value = std::is_same_v<Ty, T0> || is_in<Ty, T1, Ts...>::value;
     };
 
     template<class Ty, class T0>
-    struct is_in {
-        inline static constexpr bool val = std::is_same_v<Ty, T0>;
+    struct is_in <Ty, T0> {
+        inline static constexpr bool value = std::is_same_v<Ty, T0>;
     };
 
     template<class Ty, class... Ts>
     inline constexpr bool is_in_v = is_in<Ty, Ts...>::value;
 
+    typedef void (*destructor_fn_t)(void*);
     template<class T>
     void type_erased_destructor(void* ptr){
         reinterpret_cast<T*>(ptr)->~T();
     }
 
+    typedef void (*move_fn_t)(void*, void*);
     template<class T>
     void type_erased_move(void* dst, void* src){
         new(dst) T(std::move(*reinterpret_cast<T*>(src)));
     }
 
+    typedef void (*copy_fn_t)(void*, void*);
     template<class T>
+        requires std::is_copy_constructible_v<T>
     void type_erased_copy(void* dst, const void* src){
-        new(dst) T(*reintepret_cast<const T*>(src));
+        new(dst) T(*reinterpret_cast<const T*>(src));
     }
+
+    template<class T, class... Ts>
+    class match_result;
 
     template<class... Ts>
     class choice {
         using storage_t = polymorph_storage<0, Ts...>;
-        using type_list_t = indexed_type_list<0, Ts...>;
-        inline static constexpr auto destroy_fn[] = {
+        inline static constexpr destructor_fn_t destroy_fn[] = {
             type_erased_destructor<Ts>...
         };
-        inline static constexpr auto copy_fn[] = {
+        inline static constexpr copy_fn_t copy_fn[] = {
             type_erased_copy<Ts>...
         };
-        inline static constexpr auto move_fn[] = {
+        inline static constexpr move_fn_t move_fn[] = {
             type_erased_move<Ts>...
         };
         storage_t storage;
@@ -59,15 +68,25 @@ namespace mstd {
             destroy_fn[discriminator](&storage);
         }
     public:
+        using type_list_t = indexed_type_list<0, Ts...>;
         choice(): discriminator(0) {
-            new(&storage) type_list_t::type_at_t<0>();
+            using T = typename type_list_t::type_at<0>;
+            new(&storage) T();
         }    
 
-        template<class T> requires is_in_v<T, Ts...>
-        choice(const T& t);
+        template<class T>
+            requires is_in_v<T, Ts...>
+        choice(const T& t){
+            new(&this->storage) T(t);
+            this->discriminator = type_list_t::template id_of<T>();
+        }
 
-        template<class T> requires is_in_v<T, Ts...>
-        choice(T&& t);    
+        template<class T>
+            requires is_in_v<T, Ts...>
+        choice(T&& t){
+            new(&this->storage) T(std::forward<T>(t));
+            this->discriminator = type_list_t::template id_of<T>();
+        }   
 
         choice(const choice& other) {
             copy_fn[other.discriminator](&this->storage, &other.storage);
@@ -82,7 +101,7 @@ namespace mstd {
         template<class U>
         choice& operator=(const U& src) { 
             // only works on the first matched type
-            discriminator = type_list_t::id_of<U>();
+            discriminator = type_list_t::template id_of<U>();
             new(&storage) U(src);
         }
 
@@ -100,18 +119,24 @@ namespace mstd {
         template<class U>
         choice& operator=(U&& src)  { 
             // only works on the first matched type
-            discriminator = type_list_t::id_of<U>();
+            discriminator = type_list_t::template id_of<U>();
             new(&storage) U(std::forward<U>(src));
+            return *this;
         }
 
         ~choice() { destroy(); }
+
+        template<class T>
+        bool is() const {
+            return discriminator == type_list_t::template id_of<T>();
+        }
         
         template<class T, class U>
             requires std::is_constructible_v<T, U>
         choice& set(U&& src){
             destroy();
             using Ut = std::decay_t<U>;
-            auto index = type_list_t::id_of<Ut>();
+            auto index = type_list_t::template id_of<Ut>();
             if constexpr(std::is_rvalue_reference_v<U>)
                 new(&storage) T(std::forward<Ut>(src));
             else
@@ -120,7 +145,11 @@ namespace mstd {
             return *this;
         }
 
-        template<uint32_t index, class U, class V = type_list_t::type_at_t<index>>
+        uint32_t get_id() const {
+            return discriminator;
+        }
+
+        template<uint32_t index, class U, class V = typename type_list_t::type_at<index>>
             requires std::is_constructible_v<V, U>
         choice& set_at(U&& src){
             destroy();
@@ -135,49 +164,51 @@ namespace mstd {
 
         template<class U, class Fn>
         auto match(Fn&& fn){
-            if constexpr(std::is_void_v<std::invoke_result_t<Fn, U&>>){
-                if(discriminator == type_list_t::id_of<U>())
-                    return match_result<U>(
+            if constexpr(!std::is_void_v<std::invoke_result_t<Fn, U&>>){
+                if(discriminator == type_list_t::template id_of<U>())
+                    return match_result<U, Ts...>(
                         std::invoke(
                             std::forward<Fn>(fn),
                             *reinterpret_cast<U*>(&storage)
-                        ), this);
+                        ), *this);
                 else
-                    return match_result<U>(*this);
+                    return match_result<U, Ts...>(*this);
             }
             else {
-                if(discriminator == type_list_t::id_of<U>()){
+                if(discriminator == type_list_t::template id_of<U>()){
                     std::invoke(
                         std::forward<Fn>(fn),
                         *reinterpret_cast<U*>(&storage)
-                    )
-                    return match_result<void>(true, *this);
+                    );
+                    return match_result<void, Ts...>(true, *this);
                 }
                 else
-                    return match_result<void>(*this);
+                    return match_result<void, Ts...>(false, *this);
             }
         }
 
         template<uint32_t index, class Fn>
         auto match_index(Fn&& fn){
+            using U = type_list_t::template type_at<index>;
             if constexpr(std::is_void_v<std::invoke_result_t<Fn, U>>){
-                return match_result<U>(U{}, *this);
+                return match_result<U, Ts...>(U{}, *this);
             }
             else {
                 return match_result<void>(*this);
             }
         }
 
+        // take
         template<class T>
         maybe<T> take_if(){
-            if(discriminator == type_list_t::id_of<T>())
+            if(discriminator == type_list_t::template id_of<T>())
                 return some<T>(std::move(*reinterpret_cast<T*>(&storage)));
             else return nothing;
         }
 
         template<uint32_t index>
-        auto take_if_at() -> maybe<type_list_t::type_at_t<index>>{
-            using T = type_list_t::type_at_t<index>;
+        auto take_if_at() -> maybe<typename type_list_t::type_at<index>>{
+            using T = typename type_list_t::type_at<index>;
             if(discriminator == index)
                 return some<T>(std::move(*reinterpret_cast<T*>(&storage)));
             else return nothing;
@@ -189,73 +220,107 @@ namespace mstd {
         }
 
         template<uint32_t index>
-        auto take_unchecked_at() -> type_list_t::type_at_t<index> {
-            using T = type_list_t::type_at_t<index>;
+        auto take_unchecked_at() -> typename type_list_t::type_at<index> {
+            using T = typename type_list_t::type_at<index>;
             return std::move(*reinterpret_cast<T*>(&storage));
         }
 
+        // borrow
+        template<class T>
+        maybe<T&> borrow_if(){
+            if(discriminator == type_list_t::template id_of<T>())
+                return some<T>(*reinterpret_cast<T*>(&storage));
+            else return nothing;
+        }
+
+        template<uint32_t index>
+        auto borrow_if_at() -> maybe<typename type_list_t::type_at<index>&>{
+            using T = typename type_list_t::type_at<index>;
+            if(discriminator == index)
+                return some<T&>(*reinterpret_cast<T*>(&storage));
+            else return nothing;
+        }
+
+        template<class T>
+        T& borrow_unchecked(){
+            return *reinterpret_cast<T*>(&storage);
+        }
+
+        template<uint32_t index>
+        auto borrow_unchecked_at() -> typename type_list_t::type_at<index>& {
+            using T = typename type_list_t::type_at<index>;
+            return *reinterpret_cast<T*>(&storage);
+        }
+
+        template<class U, class... Us> friend class match_result;
+    };
+
+    template<class T, class... Ts>
+    class match_result {
+        using choice = choice<Ts...>;
+        using type_list_t = choice::type_list_t;
+        maybe<T> result;
+        choice& base;
     public:
-        template<class T> friend class match_result;
+        match_result(choice* base): base(base), result(nothing){}
+        match_result(T&& result, choice& base): base(base), result(std::forward<T>(result)){}
+        template<class U, class Fn>
+        match_result& match(Fn&& fn){
+            if(!result.is_valid() && base.discriminator == type_list_t::template id_of<U>()){
+                result = std::invoke(
+                    std::forward<Fn>(fn),
+                    *reinterpret_cast<U*>(&base.storage)
+                );
+            }
+            return *this;
+        }
+        template<class Fn>
+        T otherwise(Fn&& fn){
+            if(!result.is_valid())
+               return std::invoke(std::forward<Fn>(fn));
+            return result.take_unchecked();
+        }
 
-        template<class T> requires !std::is_void_v<T>
-        class match_result {
-            maybe<T> result;
-            choice& base;
-        public:
-            match_result(choice* base): base(base), result(nothing){}
-            match_result(T&& result, choice& base): base(base), result(std::forward<T>(result)){}
-            template<class U, class Fn>
-            match_result& match(Fn&& fn){
-                if(!result.is_valid() && base->discriminator == type_list_t::id_of<U>()){
-                    result = std::invoke(
-                        std::forward<Fn>(fn),
-                        *reinterpret_cast<U*>(&base->storage)
-                    );
-                    done = true;
-                }
-                return *this;
-            }
-            template<class Fn>
-            T otherwise(Fn&& fn){
-                if(!result.is_valid())
-                   return std::invoke(std::forward<Fn>(fn));
-                return result.take_unchecked();
-            }
+        template<class U>
+        T or_default(U&& default_val){
+            return static_cast<T>(default_val);
+        }
+    };
 
-            template<class U>
-            T or_default(U&& default_val){
-                return static_cast<T>(default_val);
+    template<class... Ts>
+    class match_result<void, Ts...> {
+        using choice = choice<Ts...>;
+        using type_list_t = choice::type_list_t;
+        bool done;
+        choice& base;
+    public:
+        match_result(bool done, choice& base): base(base), done(done){}
+        template<class U, class Fn>
+        match_result& match(Fn&& fn){
+            if(!done && base.discriminator == type_list_t::template id_of<U>()){
+                std::invoke(
+                    std::forward<Fn>(fn),
+                    *reinterpret_cast<U*>(&base.storage)
+                );
+                done = true;
             }
-        };
-
-        class match_result {
-            bool done;
-            choice& base;
-        public:
-            match_result(bool done, choice& base): base(base), done(done){}
-            template<class U, class Fn>
-            match_result& match(Fn&& fn){
-                if(!done && base->discriminator == type_list_t::id_of<U>()){
-                    std::invoke(
-                        std::forward<Fn>(fn),
-                        *reinterpret_cast<U*>(&base->storage)
-                    );
-                }
-                return *this;
-            }
-            template<class Fn>
-            void otherwise(Fn&& fn){
-                if(!done) std::invoke(std::forward<Fn>(fn));
-            }
-        };
+            return *this;
+        }
+        template<class Fn>
+        void otherwise(Fn&& fn){
+            if(!done) std::invoke(std::forward<Fn>(fn));
+        }
     };
 
     template<uint32_t index, class T, class... Ts>
     union polymorph_storage<index, T, Ts...>{
         inline static constexpr auto id = index;
         T val;
-        polymorph_storage<index + 1, Ts...> next;
+        using next_t = polymorph_storage<index + 1, Ts...>;
+        next_t next;
     public:
+        polymorph_storage(){}
+        ~polymorph_storage(){}
         template<uint32_t ind, class U>
         void assign_with_index(U src) {
             using Ut = std::decay_t<U>;
@@ -263,12 +328,12 @@ namespace mstd {
                 if constexpr(ind == index) {
                     static_assert(std::is_constructible_v<T, U>, "cannot construct the object");
                     new(&this->val) T(std::forward<Ut>(src));
-                } else next.assign_with_index<ind, U>(std::forward<Ut>(src));
+                } else next.template assign_with_index<ind, U>(std::forward<Ut>(src));
             } else {
                 if constexpr(ind == index) {
                     static_assert(std::is_constructible_v<T, U>, "cannot construct the object");
                     new(&this->val) T(src);
-                } else next.assign_with_index<ind, U>(src);
+                } else next.template assign_with_index<ind, U>(src);
             }
         }
 
@@ -279,7 +344,7 @@ namespace mstd {
                 if constexpr(std::is_rvalue_reference_v<U>)
                     new(&this->val) T(std::forward<Ut>(src));
                 else new(&this->val) T(src);
-            } else next.assign_with_type<U>(std::forward<U>(src));
+            } else next.template assign_with_type<U>(std::forward<U>(src));
         }
 
         template<class U>
@@ -318,61 +383,56 @@ namespace mstd {
         }
         
         template<class U>
-        static constexpr is_same() { return std::is_same_v<T, U>; }
+        static constexpr bool is_same() { return std::is_same_v<T, U>; }
         static consteval uint32_t get_id() { return index; }
+    };
+
+    template<uint32_t ind, class... Ts> struct _type_at;
+    template<class T, class... Ts>
+    struct _type_at<0, T, Ts...> {
+        using type = T;
+    };
+    template<uint32_t index, class T, class... Ts>
+    struct _type_at<index, T, Ts...> {
+        using type = typename _type_at<index - 1, Ts...>::type;
     };
 
     template<uint32_t index, class T, class... Ts>
     struct indexed_type_list<index, T, Ts...> {
         inline static constexpr auto id = index;
-        indexed_type_list<index + 1, Ts...> next;
+        using next = indexed_type_list<index + 1, Ts...>;
 
         template<class U>
-        static constexpr uint32_t id_of(){ 
+        static consteval uint32_t id_of(){ 
             if constexpr(std::is_same_v<T,U>)
                 return index;
             else 
-                return next.id_of<U>(); 
+                return next::template id_of<U>(); 
         }
-        
-        template<uint32_t ind>
-        struct type_at { 
-            using type = indexed_type_list<index + 1, Ts...>::type_at_t<ind>;
-        };
-
-        struct type_at<index> {
-            using type = T;
-        };
 
         template<uint32_t ind>
-        using type_at_t = type_at<ind>::type;
-        
+        using type_at = typename _type_at<ind, T, Ts...>::type;        
     };
 
     template<uint32_t index, class T>
     struct indexed_type_list<index, T> {
         inline static constexpr auto id = index;
-        inline static constexpr meta_type_info<T> info;
 
         template<class U>
-        static constexpr uint32_t id_of(){ 
+        static consteval uint32_t id_of(){ 
             static_assert(std::is_same_v<U, T>, "the given type is not in the list");
             return index; 
         }
 
         template<uint32_t ind>
-        struct type_at { 
-            static_assert(ind <= index, "type index out of bound");
-            using type = T;
-        };
-
-        template<uint32_t ind>
-        using type_at_t = type_at<ind>::type;
+        using type_at = typename _type_at<ind, T>::type;
     };
-}
 
-mstd::choice<int, float, double, std::string, std::vector> ch_value;
-ch_value
-    .match<int>([](int&&){ printk("integer"); })
-    .match<double>([](double&&){ printk("double"); })
-    .otherwise([](){ printk("other type")});
+    template<class T>
+    using types_of = T::type_list_t;
+
+    template<class T, class... Ts>
+    consteval uint32_t id_of(choice<Ts...>&){
+        return choice<Ts...>::type_list_t::template id_of<T>();
+    }
+}

@@ -53,11 +53,13 @@ _start:
 _boot_start:
 
     /* store DTB in a callee-saved register */
-    ldr x1, =dtb_boot
+    adrp x1, dtb_boot
+    add x1, x1, :lo12:dtb_boot
     str x0, [x1]
 
     /*initializing stack*/
     ldr x0, =STACK_TOP
+    and x0, x0, #0xffffffff
     mov sp, x0
 
     /* mask interrupts */
@@ -86,9 +88,11 @@ el2_boot:
 
     /* lower to el1 */
     ldr x0, =STACK_TOP
+    and x0, x0, #0xffffffff
     msr sp_el1, x0
     /* set EL1 entry */
-    ldr x0, =el1_boot
+    adrp x0, el1_boot
+    add x0, x0, :lo12:el1_boot
     msr elr_el2, x0
     mov x0, #0b0101
     msr spsr_el2, x0
@@ -101,10 +105,12 @@ el3_boot:
 
 /* el1_boot */
 el1_boot:
-    ldr x0, =enter_el1_msg
+    adrp x0, enter_el1_msg
+    add x0, x0 :lo12:enter_el1_msg
     bl printk
 
-    ldr x1, =dtb_boot
+    adrp x1, dtb_boot
+    add x1, x1, :lo12:dtb_boot
     ldr x0, [x1] 
     b kernel_bootstrap
     b .

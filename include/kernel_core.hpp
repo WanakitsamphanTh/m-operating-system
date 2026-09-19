@@ -73,4 +73,6 @@ extern "C" {
     __attribute__((section(".text.boot"))) void disable_timer();
 
     void kprintf(const char* fmt, ...);
+
+    void init_global_heap();
 }

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include "kernel/mem/mem.hpp"
 #include "mem.hpp"
+#include "kernel/mem/common.hpp"
 
 
 namespace MK {
@@ -151,4 +152,17 @@ namespace MK {
     uintptr_t kvirt2phy(T ptr){ return reinterpret_cast<uintptr_t>(ptr) & ~kernel_base; }
 
     extern "C" void enable_mmu(uint64_t mair, uint64_t tcr, PageDescriptor* l0_table);
+
+    template<KernelSession session>
+    class PageManager;
+
+    template<>
+    class PageManager<Bootstrap>: public PageTablesManager {
+    public:
+        template<class Fn>
+        PageManager<Permanent> relocate(Fn&& fn){}
+    };
+
+    template<>
+    class PageManager<Permanent>: public PageTablesManager {};
 }

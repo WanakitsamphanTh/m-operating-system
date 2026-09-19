@@ -76,6 +76,20 @@ namespace mstd {
 
         dyn_fmt_buffer& operator=(const dyn_fmt_buffer& writer);
 
+        template<class U>
+        friend class dyn_fmt_buffer;
+
+        /*
+        caution: type identity is valid only within the same linkage unit
+                and downcasting is usually discouraged.
+        */
+        template<concrete_buffer Buffer>
+        bool is() const { return this->vptr == get_vtable<Buffer>(); }
+        template<concrete_buffer Buffer>
+        maybe<Buffer&> downcast() { 
+            if(is<Buffer>()) return some<Buffer&>(*reinterpret_cast<Buffer*>(writer));
+            else return nothing;
+        }
 
         bool putc(char c);
         fmt_result write(const char* str, size_t len);

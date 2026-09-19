@@ -23,13 +23,20 @@ namespace mstd {
     using std::is_const_v;
 
     template<class T> class maybe;
+    template<class T, class validation> class firm;
 
     template<class T> class some_t;
     class nothing_t{};
     constexpr nothing_t nothing;
 
+    template<class T>
+    constexpr bool is_firm_v = false;
+
+    template<class T, class validation>
+    constexpr bool is_firm_v<firm<T, validation>> = true;
+
     /* ===================== concrete maybe ===================== */
-    template<class T> requires (!is_reference_v<T>)
+    template<class T> requires (!is_reference_v<T> && !is_firm_v<T>)
     class maybe<T> {
         alignas(T) char buffer[sizeof(T)];
         bool valid;
@@ -293,12 +300,15 @@ namespace mstd {
         }
 
         template<class Fn, class Result = invoke_result_t<Fn>>
-            requires (is_convertible_v<Result, T>)
         maybe apply_when_nothing(Fn&& fn) {
             if(!valid){
-                auto storage = reinterpret_cast<T*>(buffer);
-                new(storage) T(invoke(forward<Fn>(fn)));
-                valid = true;
+                if constexpr(is_same_v<Result, maybe<T>>){
+                    *this = invoke(forward<Fn>(fn));
+                } else {
+                    auto storage = reinterpret_cast<T*>(buffer);
+                    new(storage) T(invoke(forward<Fn>(fn)));
+                    valid = true;
+                }
             }
             return *this;
         }
@@ -344,27 +354,6 @@ namespace mstd {
         template<class U> requires (is_convertible_v<U&, TRef>)
         maybe& operator=(U& ref){
             this->ptr = ref;
-        }
-
-        /* dereference */
-        template<class V> requires(is_convertible_v<TRef, V&>)
-        operator V&() { return ptr; }
-        template<class V> requires(is_convertible_v<const TRef, V&>)
-        operator const V&() const { return ptr; }
-
-        template<typename U = T>
-            requires (!is_const_v<U>)
-        T* operator->() { 
-            return ptr;
-        }
-        const T* operator->() const { 
-            return ptr;
-        }
-        T& operator*() { 
-            return *ptr;
-        }
-        const T& operator*() const { 
-            return *ptr; 
         }
 
         /* release*/
@@ -517,9 +506,140 @@ namespace mstd {
                 invoke(forward<Fn>(fn), borrow_unchecked());
             return *this;
         }
+
+        template<class Fn, class Result = invoke_result_t<Fn>>
+        maybe apply_when_nothing(Fn&& fn) {
+            if(!is_valid()){
+                if constexpr(is_same_v<Result, maybe<TRef>>){
+                    *this = invoke(forward<Fn>(fn));
+                } else {
+                    ptr = &invoke(forward<Fn>(fn));
+                }
+            }
+            return *this;
+        }
+    };
+
+    /* ========================= non_null type ======================== */
+    template<class T>
+    struct has_invalid;
+
+    template<class T>
+    concept has_invalid_value
+        = requires(T& t) { 
+            { has_invalid<T>::test(t) } -> std::same_as<bool>;
+            { has_invalid<T>::sentinel }; 
+        };
+
+    template<class T>
+    struct has_invalid<T*>{
+        static constexpr T* sentinel = nullptr;
+        static bool test(T*& ptr){ return ptr != nullptr; }
+    };
+
+    template<class T>
+    using has_null = has_invalid<T*>;
+
+    template<class T, class validation = has_invalid<T>>
+    class firm {
+        T value;
+        firm(T&& val): value(forward<T>(val)){}
+    public:
+        static maybe<firm<T>> test(T&& v){
+            if(!validation::test(v))
+                return nothing;
+            else
+                return maybe<firm<T>>({forward<T>(v)});
+        }
+        
+        static firm<T> assume(T&& val){
+            return firm<T>(forward<T>(val));
+        }
+
+        operator T() { return value; }
+
+        template<class U = T> requires std::is_pointer_v<U>
+        auto operator->() {
+            return value;
+        }
+
+        template<class U = T> requires std::is_pointer_v<U>
+        auto operator*() {
+            return *value;
+        }
+    };
+
+    template<class T>
+    using non_null = firm<T*>;
+    
+    /* ===================== specialization for maybe<firm<T>> ==============*/
+    template<class T, class validation>
+    class maybe<firm<T, validation>> {
+        static constexpr auto sentinel = validation::sentinel;
+        T val;
+    public:
+        maybe(): val(sentinel){}
+        template<class U> requires is_constructible_v<T, U>
+        maybe(const U& _val): maybe(){
+            T tmp(_val);
+            if(validation::test(tmp)) val = move(tmp);
+        }
+        template<class U> requires std::is_assignable_v<T, U>
+        maybe(U&& val): maybe(){
+            if(validation::test(val)) val = forward<U>(val);
+        }
+        maybe(nothing_t): maybe(){}
+
+        /* copy */
+        maybe(const maybe& other): val(other.val){}
+        maybe& operator=(const maybe& other){
+            val = other.val;
+            return *this;
+        }
+        
+        /* move */
+        maybe(maybe&& other): val(move(other.val)){}
+        maybe& operator=(maybe&& other){
+            val = move(other.val);
+            return *this;
+        }
+
+        /* validity */
+        operator bool() const noexcept { return validation::test(val); }
+        bool operator!() const noexcept { return !validation::test(val); }
+        bool is_valid() const noexcept { return validation::test(val); }
+
+        /* ownership */
+        firm<T>&& take_unchecked() { return move(*reinterpret_cast<firm<T>*>(val)); }
+        const firm<T>& borrow_const_unchecked() const { return *reinterpret_cast<const firm<T>*>(val); }
+        firm<T>& borrow_unchecked() { return *reinterpret_cast<firm<T>*>(val); }
+
+        firm<T>&& take() {
+            if(is_valid())
+                return take_unchecked();
+            panic("Empty maybe<T> cannot be borrowed as value");
+        }
+
+        const firm<T>& borrow_const() const {
+            if(is_valid())
+                return borrow_const_unchecked();
+            panic("Empty maybe<T> cannot be borrowed as value");
+        }
+
+        firm<T>& borrow() {
+            if(is_valid())
+                return borrow_unchecked();
+            panic("Empty maybe<T> cannot be borrowed as value");
+        }
     };
 
     /* ===================== some() definitions ===================== */
+
+    template<class T>
+    maybe<T> some(T&& value){
+        maybe<T> something(forward<T>(value));
+        return something;
+    }
 
     template<class T, class... Args>
         requires (!is_reference_v<T> && is_constructible_v<T, Args&&...>)

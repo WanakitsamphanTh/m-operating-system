@@ -36,6 +36,15 @@ namespace MK {
         void init_bitmap(const PhySpan& span);
     };
 
+    template<KernelSession session>
+    struct Region;
+
+    template<>
+    struct Region<Bootstrap>: MemRegion {};
+
+    template<>
+    struct Region<Permanent>: MemRegion {};
+
     struct Regions {
         MemRegion regions[8];
         size_t num;

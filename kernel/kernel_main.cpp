@@ -10,7 +10,6 @@
 #include "mstd/string.hpp"
 #include "mstd/mem/alloc.hpp"
 
-
 extern "C" [[noreturn]] 
 void kernel_main(MK::KernelSystem* hi_kernel_ptr, MK::PhySpan* hi_unmap_spans, size_t unmap_count){
     auto& console = hi_kernel_ptr->console;
@@ -18,13 +17,16 @@ void kernel_main(MK::KernelSystem* hi_kernel_ptr, MK::PhySpan* hi_unmap_spans, s
     auto& page_allocator = hi_kernel_ptr->page_allocator;
     auto& page_manager = hi_kernel_ptr->page_manager;
     
-    uintptr_t sp;
+    uintptr_t sp, pic;
     __asm__ __volatile__(
         "mov %0, sp\n"
-        : "=r"(sp)
+        "adr %1, .\n"
+        : "=r"(sp), "=r"(pic)
     );
 
     console.writeln("kernel now works at the higher half space");
-
-    kernel_halt();    
+    console.writef("stack pointer: {}\n", mstd::as_ptr(sp));
+    console.writef("instruction pointer: {}\n", mstd::as_ptr(pic));
+    
+    kernel_halt();
 }

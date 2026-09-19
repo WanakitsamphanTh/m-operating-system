@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "kernel/mem/common.hpp"
 #include "kernel/mem/page.hpp"
 #include "kernel/mem/region.hpp"
 #include "mstd/monadic/maybe.hpp"
@@ -35,4 +36,17 @@ namespace MK {
     maybe<T*> PageAlloc::alloc_page_as() {
         return this->alloc_page().then([](Page&& page){ return reinterpret_cast<T*>(page); });
     }
+
+    template<KernelSession session>
+    class PageAllocator;
+
+    template<>
+    class PageAllocator<Bootstrap>: public PageAlloc {
+    public:
+        template<class Fn>
+        PageAllocator<Permanent> relocate(Fn&& fn){}
+    };
+
+    template<>
+    class PageAllocator<Permanent>: public PageAlloc {};
 }
