@@ -106,7 +106,7 @@ el3_boot:
 /* el1_boot */
 el1_boot:
     adrp x0, enter_el1_msg
-    add x0, x0 :lo12:enter_el1_msg
+    add x0, x0, :lo12:enter_el1_msg
     bl printk
 
     adrp x1, dtb_boot

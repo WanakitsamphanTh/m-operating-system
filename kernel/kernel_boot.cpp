@@ -11,6 +11,7 @@
 #include "mstd/scope_guard.hpp"
 #include "mstd/string.hpp"
 #include "mstd/mem/alloc.hpp"
+#include "kernel/mem/manager.hpp"
 
 #include <cstddef>
 #include <utility>
@@ -20,12 +21,20 @@ using mstd::nothing;
 using mstd::some;
 using mstd::as_ptr;
 
-MK::KernelConsole console;
-MK::Regions regions;
-MK::PageAlloc page_allocator;
-MK::PageTablesManager page_manager;
+alignas(MK::page_size) MK::PageDescriptor l0_table[512];
+
+using MK::Bootstrap;
+using MK::Permanent;
+
+/* these only work in the higher half kernel */
+extern MK::PageManager<Permanent> page_manager;
+extern MK::KernelConsole console;
 
 extern "C" [[noreturn]] int kernel_bootstrap(uint8_t* dtb){
+    MK::PageManager<Bootstrap> page_manager;
+    auto& page_allocator = page_manager.get_allocator();
+    auto& regions = page_allocator.get_regions();
+
     printk("start kmain\n");
 
     // parse device tree blob
@@ -43,20 +52,19 @@ extern "C" [[noreturn]] int kernel_bootstrap(uint8_t* dtb){
         ::uart_base = uintptr_t(prop.u32_at(0).take()) << 32 | uintptr_t(prop.u32_at(4).take());
         ::uart_size = uint64_t(prop.u32_at(8).take()) << 32 | uint64_t(prop.u32_at(12).take());
     }, []() __attribute__((noreturn)) {
-        console.writeln("Cant find property reg in uart");
+        printk("Cant find property reg in uart");
         kernel_panic();
     });
 
-    console.writeln("initialized UART");
+    printk("initialized UART");
 
     gicd.find_property("reg", fdt).then_or_else([&](const MK::FDTProperty& prop){
         ::gicd_base = uintptr_t(prop.u32_at(0).take()) << 32 | uintptr_t(prop.u32_at(4).take());
         ::gicd_size = uint64_t(prop.u32_at(8).take()) << 32 | uint64_t(prop.u32_at(12).take());
         ::gicr_base = uintptr_t(prop.u32_at(16).take()) << 32 | uintptr_t(prop.u32_at(20).take());
         ::gicr_size = uint64_t(prop.u32_at(24).take()) << 32 | uint64_t(prop.u32_at(28).take());
-        console.writef("gicd base : 0x{016h}\n", ::gicd_base);
     }, []() __attribute__((noreturn)){
-        console.writeln("Cant find property reg in gicd");
+        printk("Cant find property reg in gicd");
         kernel_panic();
     });
 
@@ -69,90 +77,63 @@ extern "C" [[noreturn]] int kernel_bootstrap(uint8_t* dtb){
     regions.num =  mem_reg.len / entry_size;
     regions.num = regions.num < 8 ? regions.num : 8;
 
-    console.writef("number of banks {}\n", regions.num);
+    printk("number of banks %d\n", regions.num);
     for(size_t i = 0; i < regions.num; i++){
         size_t off = i * entry_size;
-        regions[i].span.base = 
+        auto& span = regions[i].get_span();
+        span.base = 
             uint64_t(mem_reg.u32_at(off).take()) << 32
             | uint64_t(mem_reg.u32_at(off + 4).take());
-        regions[i].span.size =
+        span.size =
             uint64_t(mem_reg.u32_at(8 + off).take()) << 32
             | uint64_t(mem_reg.u32_at(12 + off).take());
-        console.writef("regions[{}] base 0x{016h} size 0x{016h}\n", i, regions[i].span.base, regions[i].span.size);
+        printk("regions[%d] base %d size %d\n", i, span.base, span.size);
     }    
+
     page_allocator.init(
-        regions,
         MK::PhySpan{_kernel_start_addr, _kernel_size},
         MK::PhySpan{reinterpret_cast<uintptr_t>(fdt.base_ptr), fdt_size}
     );
-    console.writeln("init page allocator");
+    printk("init page allocator\n");
 
-    page_manager.init(page_allocator);
-    console.writeln("init page manager");
-
+    page_manager.init(l0_table);
+    printk("init page manager\n");
     page_manager.map(_kernel_start_addr, _kernel_rodata_end_addr - _kernel_start_addr, MK::MapMode::Id, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRO);
-    console.writeln("id map kernel");
-
+    printk("id map kernel\n");
     page_manager.map(_kernel_data_start_addr, _kernel_end_addr - _kernel_data_start_addr, MK::MapMode::Id, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRW);
-    console.writeln("id map data/bss/stack");
-
+    printk("id map data/bss/stack\n");
     page_manager.map(reinterpret_cast<uintptr_t>(dtb), fdt_size, MK::MapMode::Id, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRO);
-    console.writeln("id map FDT");
-
+    printk("id map FDT\n");
     page_manager.map(::uart_base, ::uart_size, MK::MapMode::Id, MK::PageInfo::MemoryType::Device, MK::PageInfo::AP::PRW);
-    console.writeln("id map UART");
-
+    printk("id map UART\n");
     page_manager.map(::gicd_base, ::gicd_size, MK::MapMode::Id, MK::PageInfo::MemoryType::Device, MK::PageInfo::AP::PRW);
-    console.writeln("id map GICD");
-
+    printk("id map GICD\n");
     page_manager.map(::gicr_base, ::gicr_size, MK::MapMode::Id, MK::PageInfo::MemoryType::Device, MK::PageInfo::AP::PRW);
-    console.writeln("id map GICR");
+    printk("id map GICR\n");
 
     for(auto i = 0; i < regions.num; i++){
-        uintptr_t virt_addr = MK::phy2virt_as<uintptr_t>(regions[i].span.base);
-        auto size = regions[i].span.size;
+        auto& span = regions[i].get_span();
+        uintptr_t virt_addr = MK::phy2virt_as<uintptr_t>(span.base);
+        auto size = span.size;
         page_manager.map(virt_addr, size, MK::MapMode::Direct, MK::PageInfo::MemoryType::Normal, MK::PageInfo::AP::PRW);
     }
-    console.writeln("direct map physical addresses");
+    printk("direct map physical addresses\n");
 
-    page_manager.enable_mmu();
-    console.writeln("enabled MMU");
-    console.writeln("this should work after MMU is enabled");
+    ::page_manager = std::move(page_manager).enable_mmu_and_relocate();
 
-    /* relink */
+    printk("enabled MMU");
+    printk("this should work after MMU is enabled\n");
+
+    /*===================== from now, everything that needs the higher half address works /*=====================*/
+
+    /* relocation */
     ::uart_base = MK::phy2kvirt_as<uintptr_t>(uart_base);
     ::gicd_base = MK::phy2kvirt_as<uintptr_t>(gicd_base);
     ::gicr_base = MK::phy2kvirt_as<uintptr_t>(gicr_base);
+    auto dt = std::move(fdt).relocate();
 
-    auto& relinked_fdt = *MK::phy2kvirt_as<MK::FDT*>(reinterpret_cast<uintptr_t>(&fdt));
-    auto& relinked_console = *MK::phy2kvirt_as<MK::KernelConsole*>(reinterpret_cast<uintptr_t>(&console));
-    auto& relinked_regions = *MK::phy2kvirt_as<MK::Regions*>(reinterpret_cast<uintptr_t>(&regions));
-    auto& relinked_page_allocator = *MK::phy2kvirt_as<MK::PageAlloc*>(reinterpret_cast<uintptr_t>(&page_allocator));
-    auto& relinked_page_mananger = *MK::phy2kvirt_as<MK::PageTablesManager*>(reinterpret_cast<uintptr_t>(&page_manager));
+    printk("This should work after relocation\n");
 
-    page_allocator.relink(relinked_regions);
-    page_manager.relink(relinked_page_allocator);
-    for(auto i = 0; i < regions.num; i++)
-        regions[i].relink([](uint8_t* ptr) -> uint8_t* {
-            return MK::phy2kvirt_as<uint8_t*>(reinterpret_cast<uintptr_t>(ptr));
-        });
-    fdt.relink(
-        MK::phy2kvirt_as<uint8_t*>(
-            reinterpret_cast<uintptr_t>(fdt.base_ptr)
-        )
-    );
-    
-    console.writeln("This should work after relinking");
-
-    MK::KernelSystem sys = {
-        .console = relinked_console,
-        .regions = relinked_regions,
-        .page_allocator = relinked_page_allocator,
-        .page_manager = relinked_page_mananger,
-        .fdt = relinked_fdt
-    };
-
-    MK::KernelSystem* hi_kernel_sys = MK::phy2kvirt_as<MK::KernelSystem*>(reinterpret_cast<uintptr_t>(&sys));
     MK::PhySpan unmap_spans[] = {
         MK::PhySpan{ _kernel_start_addr, _kernel_rodata_end_addr - _kernel_start_addr },
         MK::PhySpan{ _kernel_data_start_addr, _kernel_end_addr - _kernel_data_start_addr },
@@ -176,13 +157,10 @@ extern "C" [[noreturn]] int kernel_bootstrap(uint8_t* dtb){
 
     __asm__ __volatile__ (
         "mov sp, %0\n"
-        "mov x0, %1\n"
-        "mov x1, %2\n"
-        "mov x2, %3\n"
-        "mov x3, %4\n"
-        "br x3\n"
+        "mov x1, %1\n"
+        "br x1\n"
         :
-        : "r"(hi_sp), "r"(hi_kernel_sys), "r"(hi_unmap_spans), "r"(unmap_count), "r"(hi_kernel_main)
-        : "x0", "x1", "x2", "x3", "memory"
+        : "r"(hi_sp), "r"(hi_kernel_main)
+        : "x0", "x1", "memory"
     );
 }

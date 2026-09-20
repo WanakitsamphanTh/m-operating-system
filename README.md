@@ -1,9 +1,8 @@
 # MOS and mstd
 
 ## Overview
-M OS is an experimental AArch64 operating system written in C++ and assembly. It is built from the ground up: hardware is discovered through the device tree, physical memory is managed independently from virtual memory, page tables are constructed explicitly, and the MMU and exception machinery are established before entering the permanent kernel environment.
-
-The project is also an experiment in using high-level C++ abstractions without surrendering low-level control. The mstd library provides the abstractions used by the kernel, while the kernel itself remains responsible for the architectural mechanisms underneath them.
+M OS is an experimental AArch64 operating system written in C++ and assembly. It is built from the ground up: hardware is discovered through the device tree, physical memory is managed independently from virtual memory, page tables are constructed explicitly, and the MMU and exception machinery are established before entering the permanent kernel environment.\
+The project is also an experiment in using high-level C++ abstractions without giving up low-level control. The mstd library provides the abstractions used by the kernel, while the kernel itself remains responsible for the architectural mechanisms underneath them.
 
 ### Why C++
 We like C and C++ as much as most of us like Rust. But C++ is far better than C for our purposes: it provides better abstractions such as templates and concepts, powerful features such as RAII and lambdas, useful references and strong type composition, and less boilerplate than C.\
@@ -15,6 +14,29 @@ It turns out that we are deliberately establishing safe and unsafe boundaries mu
 Finally, we just wanted to try something new with C++.
 
 ## M Operating System
+
+### TODO
+- [X] Parsing Device Tree
+- [X] Physical Page Allocator
+- [X] Interrupt Handling
+- [X] Enabling MMU
+- [X] Virtual Address Space (currently)
+- [ ] Block Device / Storage Driver
+- [ ] VFS
+- [ ] Filesystem Implementation
+- [ ] File Descriptors
+- [ ] Mounting / Filesystem Discovery
+- [ ] Kernel Heap
+- [ ] Threads and Scheduler
+- [ ] Display
+- [ ] Userland
+- [ ] Processes and ELF Loading
+- [ ] IPC
+- [ ] Microkernel
+- [ ] System Call
+- [ ] Shell
+- [ ] Network Stack
+- [ ] GUI
 
 ## Experimental Library : mstd
 mstd is a style-over-substance, experimental library in which we integrate some interesting parts of Rust and Zig philosophy into C++.\

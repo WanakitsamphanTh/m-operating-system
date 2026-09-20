@@ -3,20 +3,7 @@
 #include <cstdint>
 
 namespace MK {
-    class KernelConsole;
-    class Regions;
-    class PageAlloc;
-    class PageTablesManager;
-    class PhySpan;
-    struct FDT;
-
-    struct KernelSystem{
-        KernelConsole& console;
-        Regions& regions;
-        PageAlloc& page_allocator;
-        PageTablesManager& page_manager;
-        FDT& fdt;
-    };
+    struct PhySpan;
 }
 
 extern "C" {
@@ -61,11 +48,7 @@ extern "C" {
 
     void mask_interrupt();
 
-    [[noreturn]] void kernel_main(
-        MK::KernelSystem* hi_kernel_ptr,
-        MK::PhySpan* hi_unmap_spans, 
-        size_t unmap_count
-    );
+    [[noreturn]] void kernel_main();
     
     [[noreturn]] void kernel_halt();
     [[noreturn]] void kernel_panic();

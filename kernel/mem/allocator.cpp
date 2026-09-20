@@ -6,10 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
-inline uint64_t ceil_div(uint64_t x, uint64_t y){
-    return x/y + (((x % y)) ? 1 : 0);
-}
-
+/*
 namespace MK {
     using mstd::maybe;
     using mstd::some;
@@ -45,8 +42,15 @@ namespace MK {
             if(auto region = (*regions)[i]; region.include(page))
                 region.free_page(page);
     }
+}*/
 
-    void PageAlloc::relink(Regions& reg){
-        this->regions = &reg;
+namespace MK {
+    PageAllocator<Permanent> PageAllocator<Bootstrap>::relocate() && {
+        PageAllocator<Permanent> perm;
+        perm.regions = std::move(regions).relocate();
+        return perm;
     }
+
+    template class PageAlloc<Bootstrap>;
+    template class PageAlloc<Permanent>;
 }

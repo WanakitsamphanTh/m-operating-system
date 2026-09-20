@@ -1,4 +1,5 @@
 #include "kernel/mem/page.hpp"
+#include "kernel/mem/manager.hpp"
 #include "kernel/mem/allocator.hpp"
 #include "kernel/mem/mem.hpp"
 #include "kernel_core.hpp"
@@ -14,6 +15,7 @@ namespace MK {
         return is_align<entry_size>(base);
     };
 
+    /* =============== page descriptor implementation =============== */
     PageDescriptor::PageDescriptor(uintptr_t descriptor): descriptor(descriptor){}
     PageDescriptor::PageDescriptor(const PageDescriptor& p): descriptor(p.descriptor){}
 
@@ -61,31 +63,31 @@ namespace MK {
     bool PageDescriptor::is_table() const { return (descriptor & 0b11) == 0b11; }
     bool PageDescriptor::is_block() const { return (descriptor & 0b11) == 0b01; }
 
-    PageTablesManager::PageTablesManager(): mmu_enabled(false){}
 
-    void PageTablesManager::init(PageAlloc& alloc){
-        mmu_enabled = false;
-        allocator = &alloc;
-        memset(this->l0_table, 0, page_size);
-        //map(reinterpret_cast<uintptr_t>(this), sizeof(PageTablesManager), MapMode::Id, PageInfo::MemoryType::Normal, PageInfo::AP::PRW);
+    /* =============== page table implementation =============== */
+    template<KernelSession session>
+    PageTablesManager<session>::PageTablesManager(){}
+
+    template<KernelSession session>
+    PageAllocator<session>& PageTablesManager<session>::get_allocator(){
+        return allocator;
     }
 
-    void PageTablesManager::relink(PageAlloc& alloc){
-        allocator = &alloc;
-    }
-
-    void PageTablesManager::map(uintptr_t base, size_t size, MapMode mode, uint64_t mem_type, uint64_t ap){
+    template<KernelSession session>
+    void PageTablesManager<session>::map(uintptr_t base, size_t size, MapMode mode, uint64_t mem_type, uint64_t ap){
         auto end = align<page_size>(base + size);
         base = align_down<page_size>(base);
         size = end - base;
         if(mode == MapMode::Id){
             for(auto off = 0ull; off < size; off += page_size)
-                this->allocator->reserve_page_at(base + off);
+                this->allocator.reserve_page_at(base + off);
         }
         map_l0(base, size, mode, mem_type, ap);
     }
 
-    void PageTablesManager::map_l0(uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
+    template<KernelSession session>
+    __attribute__((optimize("no-jump-tables")))
+    void PageTablesManager<session>::map_l0(uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
         uintptr_t end = base + size;
         auto tb = this->l0_table;
         while(base < end){
@@ -95,15 +97,15 @@ namespace MK {
             PageDescriptor* l1_tb;
             if(!tb[ind].is_valid()) { 
                 // create a new table
-                auto l1_pa = this->allocator->alloc_page().take();
-                l1_tb = mmu_enabled ? 
+                auto l1_pa = this->allocator.alloc_page().take();
+                l1_tb = session::uses_vaddr ? 
                     phy2virt_as<PageDescriptor*>(l1_pa) 
                     : reinterpret_cast<PageDescriptor*>(l1_pa);
                 memset(l1_tb, 0, page_size);
                 tb[ind] = PageDescriptor::make_table(l1_pa);
             } else {
                 auto l1_pa = tb[ind].get_addr();
-                l1_tb = mmu_enabled ? 
+                l1_tb = session::uses_vaddr ? 
                     phy2virt_as<PageDescriptor*>(l1_pa) 
                     : reinterpret_cast<PageDescriptor*>(l1_pa);
             }
@@ -113,8 +115,9 @@ namespace MK {
         }
     }
 
+    template<KernelSession session>
     __attribute__((optimize("no-jump-tables")))
-    void PageTablesManager::map_l1(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
+    void PageTablesManager<session>::map_l1(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
         uintptr_t end = base + size;
         while(base < end){
             auto ind = (base >> 30) & 0x1ff;
@@ -139,15 +142,15 @@ namespace MK {
                 PageDescriptor* l2_tb;
                  if(!tb[ind].is_valid()) { 
                 // create a new table
-                    auto l2_pa = this->allocator->alloc_page().take();
-                    l2_tb = mmu_enabled ? 
+                    auto l2_pa = this->allocator.alloc_page().take();
+                    l2_tb = session::uses_vaddr ? 
                         phy2virt_as<PageDescriptor*>(l2_pa) 
                         : reinterpret_cast<PageDescriptor*>(l2_pa);
                     memset(l2_tb, 0, page_size);
                     tb[ind] = PageDescriptor::make_table(l2_pa);
                 } else {
                     auto l2_pa = tb[ind].get_addr();
-                    l2_tb = mmu_enabled ? 
+                    l2_tb = session::uses_vaddr ? 
                         phy2virt_as<PageDescriptor*>(l2_pa) 
                         : reinterpret_cast<PageDescriptor*>(l2_pa);
                 }
@@ -158,8 +161,9 @@ namespace MK {
         }
     }
 
+    template<KernelSession session>
     __attribute__((optimize("no-jump-tables")))
-    void PageTablesManager::map_l2(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
+    void PageTablesManager<session>::map_l2(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
         uintptr_t end = base + size;
         while(base < end){
             auto ind = (base >> 21) & 0x1ff;
@@ -184,15 +188,15 @@ namespace MK {
                 PageDescriptor* l3_tb;
                 if(!tb[ind].is_valid()) { 
                 // create a new table
-                    auto l3_pa = this->allocator->alloc_page().take();
-                    l3_tb = mmu_enabled ? 
+                    auto l3_pa = this->allocator.alloc_page().take();
+                    l3_tb = session::uses_vaddr ? 
                         phy2virt_as<PageDescriptor*>(l3_pa) 
                         : reinterpret_cast<PageDescriptor*>(l3_pa);
                     memset(l3_tb, 0, page_size);
                     tb[ind] = PageDescriptor::make_table(l3_pa);
                 } else {
                     auto l3_pa = tb[ind].get_addr();
-                    l3_tb = mmu_enabled ? 
+                    l3_tb = session::uses_vaddr ? 
                         phy2virt_as<PageDescriptor*>(l3_pa) 
                         : reinterpret_cast<PageDescriptor*>(l3_pa);
                 }
@@ -203,8 +207,9 @@ namespace MK {
         }
     }
 
+    template<KernelSession session>
     __attribute__((optimize("no-jump-tables")))
-    void PageTablesManager::map_l3(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
+    void PageTablesManager<session>::map_l3(PageDescriptor* tb, uintptr_t base, size_t size, MapMode md, uint64_t mem_type, uint64_t ap){
         uintptr_t end = base + size;
         while(base < end){
             auto ind = (base >> 12) & 0x1ff;
@@ -223,25 +228,47 @@ namespace MK {
                     addr = kvirt2phy(reinterpret_cast<void*>(base));
                     break;
                 default:
-                    addr = this->allocator->alloc_page().take();
+                    addr = this->allocator.alloc_page().take();
             }
             tb[ind] = PageDescriptor::make_page(addr, mem_type, ap);
             base = chunk_end;
         }
     }
 
-    void PageTablesManager::enable_mmu(){
-        mmu_enabled = true;
-        MK::enable_mmu(MK::MAIR::value, MK::TCR::value, this->l0_table);
-    }
-
-    void PageTablesManager::map(void* addr, size_t size, uint64_t mem_type, uint64_t ap){
+    template<KernelSession session>
+    void PageTablesManager<session>::map(void* addr, size_t size, uint64_t mem_type, uint64_t ap){
         
     }
-    void PageTablesManager::remap(void* addr, size_t old_size, size_t size, uint64_t mem_type, uint64_t ap){
+    
+    template<KernelSession session>
+    void PageTablesManager<session>::remap(void* addr, size_t old_size, size_t size, uint64_t mem_type, uint64_t ap){
 
     }
-    void PageTablesManager::unmap(uintptr_t addr, size_t size){
+
+    template<KernelSession session>
+    void PageTablesManager<session>::unmap(uintptr_t addr, size_t size){
 
     }
+
+    /* Bootstrap Page Manager */
+    void PageManager<Bootstrap>::init(PageTable tab){
+        l0_table = reinterpret_cast<PageTable>(kvirt2phy(tab));
+        memset(this->l0_table, 0, page_size);
+    }
+
+    PageManager<Permanent> PageManager<Bootstrap>::enable_mmu_and_relocate() && {
+        MK::enable_mmu(MK::MAIR::value, MK::TCR::value, this->l0_table);
+        return std::move(*this).relocate();
+    }
+
+    PageManager<Permanent> PageManager<Bootstrap>::relocate() &&{
+        auto& perm
+            = *reinterpret_cast<PageManager<Permanent>*>(this);
+        perm.allocator = std::move(allocator).relocate();
+        perm.l0_table = phy2kvirt_as<PageTable>(reinterpret_cast<uintptr_t>(l0_table));
+        return std::move(perm);
+    }
+
+    template class PageTablesManager<Bootstrap>;
+    template class PageTablesManager<Permanent>;
 }

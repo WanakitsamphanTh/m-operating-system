@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <utility>
+#include "mem/page.hpp"
 #include "mstd/monadic/maybe.hpp"
 #include "mstd/fmt/io_core.hpp"
 
@@ -24,6 +25,8 @@ namespace MK {
     struct FDTEntry;
     struct FDTNode;
     struct FDTProperty;
+    template<KernelSession session>
+    struct DeviceTree;
 
     struct FDTEntry {
         be_uint64_t addr;
@@ -73,7 +76,7 @@ namespace MK {
         uint32_t struct_size;
 
         static constexpr uint32_t magic_number = 0xd00dfeed;
-        static mstd::maybe<FDT> try_read_fdt(uint8_t* fdt);
+        static mstd::maybe<DeviceTree<Bootstrap>> try_read_fdt(uint8_t* fdt);
         mstd::maybe<const FDTNode&> find_node(const char*) const;
         mstd::maybe<const FDTNode&> find_node_prefix(const char*) const;
         mstd::maybe<const FDTNode&> find_node(const char*, bool) const;
@@ -143,6 +146,22 @@ namespace MK {
             }
         }
     }
+
+    template<KernelSession session>
+    struct DeviceTree : public FDT {
+        DeviceTree(const FDT& fdt): FDT(fdt){}
+        DeviceTree(FDT&& fdt): FDT(std::forward<FDT>(fdt)){}
+        template<KernelSession s = session>
+            requires std::is_same_v<s, Bootstrap> 
+        DeviceTree<Permanent> relocate() && {
+            DeviceTree<Permanent> fdt = *reinterpret_cast<FDT*>(this);
+            fdt.base_ptr
+                = phy2kvirt_as<uint8_t*>(
+                    reinterpret_cast<uintptr_t>(this->base_ptr)
+                );
+            return fdt;
+        }
+    };
 }
 
 extern "C" uint32_t read_be_32(const uint8_t* bytes);

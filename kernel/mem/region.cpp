@@ -1,10 +1,11 @@
 #include "kernel/mem/region.hpp"
 #include "mstd/string.hpp"
+#include "kernel/mem/page.hpp"
 
 namespace MK {
     using mstd::maybe;
     using mstd::nothing;
-
+    
     uintptr_t PhySpan::end() const { return base + size; }
     
     bool PhySpan::overlap(const PhySpan& other) const { 
@@ -17,7 +18,8 @@ namespace MK {
         return base >= parent.base && end() <= parent.end();
     }
 
-    MemRegion& Regions::operator[](size_t ind) { return this->regions[ind]; }
+    const PhySpan& MemRegion::get_span() const { return span; }
+    PhySpan& MemRegion::get_span() { return span; }
 
     maybe<Page> MemRegion::alloc_page(){
         if(this->bitmap == nullptr) return nothing;
@@ -55,11 +57,16 @@ namespace MK {
         this->bitmap[byte_ind] &= ~(1 << bit_ind);
     }
 
-    void MemRegion::init_bitmap(const PhySpan& span){
+    void Region<Bootstrap>::init_bitmap(const PhySpan& span){
         this->bitmap = reinterpret_cast<uint8_t*>(span.base);
         this->bitmap_size = span.size;
         mstd::memset(this->bitmap, 0x00, this->bitmap_size);
         reserve_pages(span);
+    }
+
+    Region<Permanent> Region<Bootstrap>::relocate() &&{
+        bitmap = phy2kvirt_as<uint8_t*>(reinterpret_cast<uintptr_t>(bitmap));
+        return std::move(*reinterpret_cast<Region<Permanent>*>(this));
     }
 
     bool MemRegion::reserve_page_at(uintptr_t addr){

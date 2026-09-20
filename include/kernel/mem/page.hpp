@@ -3,8 +3,8 @@
 #include <cstddef>
 #include "kernel/mem/mem.hpp"
 #include "mem.hpp"
-#include "kernel/mem/common.hpp"
-
+#include "kernel/common.hpp"
+#include "kernel/mem/allocator.hpp"
 
 namespace MK {
 
@@ -75,28 +75,6 @@ namespace MK {
         Id, Direct, DirectKernel, New
     };
 
-    class PageAlloc;
-
-    class PageTablesManager {
-        bool mmu_enabled;
-        PageAlloc* allocator;
-        alignas(page_size) PageDescriptor l0_table[512];
-    public:
-        PageTablesManager();
-        void init(PageAlloc& alloc);
-        void relink(PageAlloc& alloc);
-        void map(uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
-        void map(void*, size_t, uint64_t mem_type, uint64_t ap);
-        void remap(void*, size_t, size_t, uint64_t mem_type, uint64_t ap);
-        void unmap(uintptr_t, size_t);
-        void enable_mmu();
-    private:
-        void map_l0(uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
-        void map_l1(PageDescriptor*, uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
-        void map_l2(PageDescriptor*, uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
-        void map_l3(PageDescriptor*, uintptr_t, size_t, MapMode, uint64_t mem_type, uint64_t ap);
-    };
-
     static constexpr uintptr_t max_virtual_addr = 0xffffffffffffffff;
     static constexpr uintptr_t phy_base = 1ull << 47 | kernel_vaddr;
     static constexpr uintptr_t kernel_base = kernel_vaddr;
@@ -150,19 +128,4 @@ namespace MK {
 
     template<class T>
     uintptr_t kvirt2phy(T ptr){ return reinterpret_cast<uintptr_t>(ptr) & ~kernel_base; }
-
-    extern "C" void enable_mmu(uint64_t mair, uint64_t tcr, PageDescriptor* l0_table);
-
-    template<KernelSession session>
-    class PageManager;
-
-    template<>
-    class PageManager<Bootstrap>: public PageTablesManager {
-    public:
-        template<class Fn>
-        PageManager<Permanent> relocate(Fn&& fn){}
-    };
-
-    template<>
-    class PageManager<Permanent>: public PageTablesManager {};
 }

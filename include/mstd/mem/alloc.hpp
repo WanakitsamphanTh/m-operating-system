@@ -217,9 +217,9 @@ namespace mstd{
     };
 
     struct tree_link {
-        tree_node* l;
-        tree_node* r;
-    }
+        tree_link* l;
+        tree_link* r;
+    };
 
     struct free_tree_node {
         mem_header_t header;
@@ -338,82 +338,3 @@ namespace mstd{
         requires std::is_constructible_v<T, Args...>
     maybe<T*> make_new(object_pool<T>& alloc, Args&&... args){}
 }
-
-template<class T>
-class string_t {
-public:
-    char* len() { return static_cast<T>(this)->_len; }
-    char* get_cstr() { return static_cast<T>(this)->c_str; }
-    const char* get_cstr() const { return static_cast<T>(this)->c_str; }
-    ~string_t() {
-        static_cast<T>(this)->~T();
-    };
-}
-
-class string: public string_t<string> {
-    char* c_str;
-    size_t _cap;
-    size_t _len;
-    dyn_allocator _alloc;
-    friend class string_t<string>;
-public:
-    string(): _cap(0), c_str(nullptr), _len(0), _alloc(){}
-    template<allocator_t alloc_t>
-    string(alloc_t& alloc, char filler, size_t len): _len(0), _cap(0), _alloc(alloc) {
-        auto _c_str = _alloc.alloc(len);
-        if(_c_str) {
-            c_str = _c_str.take();
-            _len = len;
-            _cap = len; 
-            for(auto i = 0; i < len; i++)
-                c_str[i] = filler;
-        } 
-    }
-    string(const string& str): string(){
-        auto _str = str.clone();
-        if(_str) *this = _str.take();
-    }
-    template<allocator_t alloc_t>
-    string(alloc_t alloc, const string& str): string(){
-        auto _str = str.clone(alloc);
-        if(_str) *this = _str.take();
-    }
-    string(string&& other): c_str(other.c_str), _cap(other._cap), _len(other._len), _alloc(other._alloc){
-        other._cap = 0;
-        other._len = 0;
-        other.c_str = nullptr;
-    }
-    string clone();
-    template<allocator_t alloc_t>
-    string clone(alloc_t alloc);
-    ~string(){ _alloc.dealloc(c_str); }
-public:
-    template<allocator_t alloc_t>
-    static maybe<string> make_string(alloc_t& alloc, char filler, size_t len = 0){
-        string str();
-        auto _c_str = alloc.alloc(len);
-        if(!c_str) return nothing;
-        if(_c_str) {
-            str.c_str = _c_str.take();
-             str._len = len;
-             str._cap = len; 
-            for(auto i = 0; i < len; i++)
-                 str.c_str[i] = filler;
-        } 
-        str._alloc = alloc;
-        return some<string>(str);
-    }
-};
-
-class static_string: public string_t<string> {
-    char* c_str;
-    size_t cap;
-    size_t _len;
-    friend class string_t<string>;
-};
-
-class string_view: public string_t<string> {
-    char* c_str;
-    size_t _len;
-    friend class string_t<string>;
-};

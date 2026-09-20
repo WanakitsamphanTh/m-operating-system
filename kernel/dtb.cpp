@@ -41,6 +41,7 @@ uint32_t be_uint32_t::to_le() const{
 namespace MK {
     using mstd::memcmp;
     using mstd::strchr;
+    using mstd::maybe;
 
     const char* FDTProperty::get_name(const FDT& fdt) const { 
         return reinterpret_cast<const char*>(fdt.base_ptr) 
@@ -63,11 +64,11 @@ namespace MK {
         this->base_ptr = ptr;
     }
 
-    mstd::maybe<FDT> FDT::try_read_fdt(uint8_t* fdt){
+    maybe<DeviceTree<Bootstrap>> FDT::try_read_fdt(uint8_t* fdt){
         if(!fdt || read_be_32(fdt) != FDT::magic_number) 
             return mstd::nothing;
-        return mstd::some<FDT>(
-            FDT{
+        return mstd::some<DeviceTree<Bootstrap>>(
+            DeviceTree<Bootstrap>(FDT{
                 .base_ptr = fdt,
                 .total_size = read_be_32(fdt + 0x04),
                 .struct_off = read_be_32(fdt + 0x08),
@@ -78,7 +79,7 @@ namespace MK {
                 .phy_cpu_id = read_be_32(fdt + 0x1c),
                 .string_size = read_be_32(fdt + 0x20),
                 .struct_size = read_be_32(fdt + 0x24)
-            }
+            })
         );
     }
 

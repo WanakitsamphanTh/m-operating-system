@@ -75,10 +75,7 @@ namespace mstd {
             writer(&writer){}
 
         dyn_fmt_buffer& operator=(const dyn_fmt_buffer& writer);
-
-        template<class U>
-        friend class dyn_fmt_buffer;
-
+        
         /*
         caution: type identity is valid only within the same linkage unit
                 and downcasting is usually discouraged.
