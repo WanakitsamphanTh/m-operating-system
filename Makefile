@@ -1,10 +1,10 @@
-CROSS = aarch64-none-elf-
+CROSS ?= aarch64-none-elf-
+EXE := $(if $(filter Windows_NT,$(OS)),.exe,)
 
-AS = $(CROSS)as.exe
-CC = $(CROSS)g++.exe
-#LD = $(CROSS)ld.exe
+AS = $(CROSS)as$(EXE)
+CC = $(CROSS)g++$(EXE)
 LD = $(CC)
-OBJCOPY = $(CROSS)objcopy.exe
+OBJCOPY = $(CROSS)objcopy$(EXE)
 
 CFLAGS = \
 	-std=c++20 \
