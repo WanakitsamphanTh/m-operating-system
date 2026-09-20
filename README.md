@@ -5,6 +5,48 @@ M OS is an experimental AArch64 operating system written in C++ and assembly. It
 
 The project is also an experiment in using high-level C++ abstractions without surrendering low-level control. The mstd library provides the abstractions used by the kernel, while the kernel itself remains responsible for the architectural mechanisms underneath them.
 
+## Getting Started
+
+You need GNU Make, the **AArch64 bare-metal** GNU toolchain
+(`aarch64-none-elf-as`, `aarch64-none-elf-g++`, and
+`aarch64-none-elf-objcopy`), and `qemu-system-aarch64`.
+The 32-bit `arm-none-eabi` toolchain cannot build this kernel.
+
+- **macOS (Homebrew):** Install [Xcode Command Line Tools](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools) for `make` (`xcode-select --install` if needed), then run `brew install --cask gcc-aarch64-embedded` and `brew install qemu`.
+- **Linux:** Install GNU Make and QEMU from your distribution, then download Arm's **aarch64-none-elf** toolchain from [Arm GNU Toolchain](https://developer.arm.com/tools-and-software/gnu-toolchain#Downloads). Add its `bin` directory to `PATH`.
+- **Windows:** Use GNU Make in Git Bash or MSYS2 (the recipes use `mkdir -p` and `rm -rf`). Install the Windows **aarch64-none-elf** toolchain from [Arm GNU Toolchain](https://developer.arm.com/tools-and-software/gnu-toolchain#Downloads) and [QEMU](https://www.qemu.org/download/), and add their binaries to `PATH`.
+
+Check that the tools are available:
+
+```sh
+aarch64-none-elf-as --version
+aarch64-none-elf-g++ --version
+qemu-system-aarch64 --version
+```
+
+Then build from the repository root:
+
+```sh
+make
+```
+
+The kernel artifacts are written to `build/kernel.elf` and
+`build/kernel.img`.
+
+To boot the kernel in QEMU:
+
+```sh
+qemu-system-aarch64 -M virt -cpu cortex-a53 -m 512M -nographic -kernel build/kernel.elf
+```
+
+Exit QEMU with `Ctrl-A`, then `X`.
+
+To remove generated files:
+
+```sh
+make clean
+```
+
 ### Why C++
 We like C and C++ as much as most of us like Rust. But C++ is far better than C for our purposes: it provides better abstractions such as templates and concepts, powerful features such as RAII and lambdas, useful references and strong type composition, and less boilerplate than C.\
 I remember how grateful I was when C++ programming gave me nice, clean, and shorter code compared to spending hours writing the same thing in C. \
